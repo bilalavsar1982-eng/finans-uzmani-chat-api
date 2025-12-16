@@ -39,37 +39,26 @@ function runDailyUpdate(reason = "cron") {
   return { updated: true, reason };
 }
 
-cron.schedule("0 10 * * *", () => {
-  console.log("[CRON 10:00]", runDailyUpdate("cron_10_00"));
-}, { timezone: "Europe/Istanbul" });
+cron.schedule(
+  "0 10 * * *",
+  () => {
+    console.log("[CRON 10:00]", runDailyUpdate("cron_10_00"));
+  },
+  { timezone: "Europe/Istanbul" }
+);
 
 // =============================
-// HAFIZA
+// HAFIZA (ÇOKLU KULLANICI)
 // =============================
 const sessions = {};
 function getSession(id) {
   if (!sessions[id]) {
     sessions[id] = {
-      horizon: null,
+      horizon: null,       // SHORT / LONG
       askedHorizon: false,
     };
   }
   return sessions[id];
-}
-
-// =============================
-// UTIL
-// =============================
-function hash32(str = "") {
-  let h = 2166136261;
-  for (let i = 0; i < str.length; i++) {
-    h ^= str.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-function pick(arr, seed) {
-  return arr[seed % arr.length];
 }
 
 // =============================
@@ -85,60 +74,101 @@ function detectIntent(msg) {
 // KONU
 // =============================
 function detectTopic(msg) {
-  if (msg.includes("çeyrek") || msg.includes("altın") || msg.includes("gram"))
+  if (
+    msg.includes("çeyrek") ||
+    msg.includes("altın") ||
+    msg.includes("gram")
+  )
     return "GOLD";
   return "GENERIC";
 }
 
 // =============================
-// SEVİYE 7 YORUM
+// CEVAP ÜRETİMİ — SEVİYE 7 (DÜZELTİLDİ)
 // =============================
 function buildReply(body) {
   const msg = (body.message || "").toLowerCase();
   const sessionId = body.sessionId || "anon";
   const mem = getSession(sessionId);
 
+  // ---- VADE YAKALA
   if (msg.includes("kısa") || msg.includes("1 hafta")) mem.horizon = "SHORT";
   if (msg.includes("uzun")) mem.horizon = "LONG";
 
   if (!mem.horizon && !mem.askedHorizon) {
     mem.askedHorizon = true;
-    return "Buna kısa vadeli mi (1 hafta) yoksa uzun vadeli mi bakmamı istersin?";
+    return "Buna kısa vadeli (1 hafta) mi yoksa uzun vadeli mi bakmamı istersin?";
   }
 
   const intent = detectIntent(msg);
   const topic = detectTopic(msg);
 
-  const daily = body.dailyPct;
   const weekly = body.weeklyPct;
   const monthly = body.monthlyPct;
-  const risk = body.riskSignal || "HOLD";
 
-  let text = "";
+  let reply = "";
 
+  // ---- KONU GİRİŞİ
   if (topic === "GOLD") {
-    text += "Altın tarafında son dönemde fiyat hareketleri dalgalı seyrediyor.\n\n";
+    reply +=
+      "Altın tarafında son dönemde fiyatlar dalgalı bir seyir izliyor. " +
+      "Bu nedenle karar verirken tek bir veriye odaklanmak sağlıklı olmaz.\n\n";
   }
 
-  if (weekly !== undefined) {
-    text += `Son 7 günde fiyatlarda yaklaşık %${weekly.toFixed(1)}’lik bir değişim görülüyor.\n\n`;
-  }
-
-  if (intent === "BUY") {
-    text += "Alım tarafında acele edilmesi, dalgalı dönemlerde psikolojik baskı oluşturabilir. ";
-  } else if (intent === "SELL") {
-    text += "Satış tarafında ise mevcut seviyeler panik gerektiren bir baskı üretmiyor. ";
-  }
-
+  // ---- KISA VADE BLOĞU (TAMAMEN AYRI)
   if (mem.horizon === "SHORT") {
-    text += "Kısa vadede belirsizlik ön planda olduğu için temkinli olmak daha dengeli bir yaklaşım olabilir.\n\n";
-  } else {
-    text += "Uzun vadede fiyatlar genellikle daha geniş bir perspektifle değerlendirilmelidir.\n\n";
+    reply +=
+      "🔎 **Kısa vadeli (1 haftalık) değerlendirme:**\n" +
+      "Kısa vadede fiyat hareketleri genellikle haber akışı ve ani dalgalanmalarla şekillenir. ";
+
+    if (weekly !== undefined) {
+      reply +=
+        `Son 7 günde yaklaşık %${weekly.toFixed(
+          1
+        )}’lik bir değişim görülmüş olması, hareketliliğin arttığını gösteriyor. `;
+    }
+
+    if (intent === "BUY") {
+      reply +=
+        "Bu ortamda alım tarafında acele edilmesi, kısa sürede ters hareket riskini artırabilir. ";
+    } else if (intent === "SELL") {
+      reply +=
+        "Satış düşünülüyorsa, ani panik yerine fiyatın davranışı biraz daha izlenmeli. ";
+    }
+
+    reply +=
+      "Kısa vadede temkinli ve hızlı karar gerektirmeyen bir yaklaşım daha dengeli olabilir.\n\n";
   }
 
-  text += "Bu değerlendirme, mevcut verilerin genel yorumuna dayanmaktadır.";
+  // ---- UZUN VADE BLOĞU (TAMAMEN AYRI)
+  if (mem.horizon === "LONG") {
+    reply +=
+      "📈 **Uzun vadeli değerlendirme:**\n" +
+      "Uzun vadede altın fiyatları genellikle makroekonomik gelişmeler, enflasyon beklentileri ve küresel risk algısıyla şekillenir. ";
 
-  return text;
+    if (monthly !== undefined) {
+      reply +=
+        `Son 1 ayda yaklaşık %${monthly.toFixed(
+          1
+        )}’lik bir hareket görülmesi, genel trend hakkında fikir verebilir. `;
+    }
+
+    if (intent === "BUY") {
+      reply +=
+        "Uzun vadeli alımlar söz konusuysa, tek sefer yerine kademeli yaklaşım riski azaltabilir. ";
+    } else if (intent === "SELL") {
+      reply +=
+        "Uzun vadede satış kararı alınacaksa, aceleci davranmak yerine hedef seviyeler göz önünde bulundurulmalı. ";
+    }
+
+    reply +=
+      "Bu perspektifte sabırlı olmak ve geniş zaman dilimini dikkate almak daha sağlıklı olur.\n\n";
+  }
+
+  reply +=
+    "Bu yorum, mevcut fiyat verilerinin genel değerlendirmesine dayanmaktadır.";
+
+  return reply;
 }
 
 // =============================
