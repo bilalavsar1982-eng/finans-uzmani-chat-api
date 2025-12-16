@@ -58,7 +58,7 @@ app.post("/check-update", (req, res) => {
 // =============================
 // 🔥 HAFIZA (ÇOKLU KULLANICI)
 // =============================
-const sessions = {}; // RAM – FREE plan için yeterli
+const sessions = {};
 
 function getSession(id) {
   if (!sessions[id]) {
@@ -117,13 +117,13 @@ function decideSignal(body) {
 // =============================
 const OPENERS = {
   GOLD: [
-    "Altın tarafında şu an temkinli olmak gerekiyor.",
-    "Altında acele karar vermek risk yaratabilir.",
-    "Altın cephesinde yön netleşmeden işlem zor."
+    "Altın tarafında şu an temkinli bir görünüm var.",
+    "Altında karar verirken acele etmemek gerekiyor.",
+    "Altın cephesinde netlik henüz tam oluşmuş değil."
   ],
   USD: [
-    "Kur tarafında dalgalı bir görünüm var.",
-    "Dolar/TL hareketleri kısa sürede yön değiştirebilir."
+    "Kur tarafında hareketler dalgalı.",
+    "Dolar/TL kısa sürede yön değiştirebilir."
   ],
   GENERIC: [
     "Piyasa şu an net bir yön vermiyor.",
@@ -132,30 +132,43 @@ const OPENERS = {
 };
 
 const HORIZON_ASK = [
-  "Kısa vade mi (1 hafta) yoksa daha uzun vade mi düşünüyorsun?",
-  "Buna 1 haftalık mı yoksa uzun vadeli mi bakmamı istersin?"
+  "Buna 1 haftalık mı yoksa daha uzun vadeli mi bakmamı istersin?",
+  "Kısa vade (1 hafta) mi, uzun vade mi düşünüyorsun?"
 ];
 
-const HORIZON_CONFIRM = {
-  SHORT: [
-    "1 haftalık perspektifle değerlendiriyorum.",
-    "Kısa vadeli (1 hafta) bakış açısıyla devam ediyorum."
-  ],
-  LONG: [
-    "Uzun vadeli perspektifle değerlendiriyorum.",
-    "Daha geniş vadeli bakış açısıyla yorumluyorum."
-  ]
+const HORIZON_STYLE = {
+  SHORT: {
+    confirm: [
+      "1 haftalık kısa vadeli bakış açısıyla değerlendiriyorum.",
+      "Kısa vadede (1 hafta) hareketlere odaklanıyorum."
+    ],
+    advice: {
+      AL: "Kısa vadede alım yapılacaksa hızlı hareketlere karşı dikkatli olunmalı.",
+      SAT: "Kısa vadede zararın büyümemesi için temkinli olmak önemli.",
+      BEKLE: "Kısa vadede net yön oluşmadan işlem açmamak daha sağlıklı."
+    }
+  },
+  LONG: {
+    confirm: [
+      "Uzun vadeli perspektifle değerlendiriyorum.",
+      "Daha geniş vadeli bakış açısıyla yorumluyorum."
+    ],
+    advice: {
+      AL: "Uzun vadede alımların parçalı yapılması riski azaltır.",
+      SAT: "Uzun vadede kâr realizasyonu düşünülebilir.",
+      BEKLE: "Uzun vadede daha net seviyeler beklenebilir."
+    }
+  }
 };
 
 // =============================
-// CEVAP ÜRETİMİ (İNSAN GİBİ)
+// CEVAP ÜRETİMİ
 // =============================
 function buildReply(body) {
   const message = (body.message || "").toLowerCase();
   const sessionId = body.sessionId || "anon";
   const mem = getSession(sessionId);
 
-  // Vade yakala
   if (message.includes("1 hafta") || message.includes("kısa")) {
     mem.horizon = "SHORT";
   } else if (message.includes("uzun")) {
@@ -165,12 +178,9 @@ function buildReply(body) {
   const topic = detectTopic(message, body.code || "");
   mem.lastTopic = topic;
 
-  // Vade bilinmiyorsa 1 kere sor
-  if (!mem.horizon) {
-    if (!mem.askedHorizon) {
-      mem.askedHorizon = true;
-      return pick(HORIZON_ASK, hash32(sessionId));
-    }
+  if (!mem.horizon && !mem.askedHorizon) {
+    mem.askedHorizon = true;
+    return pick(HORIZON_ASK, hash32(sessionId));
   }
 
   const { signal, confidence } = decideSignal(body);
@@ -180,7 +190,8 @@ function buildReply(body) {
   reply += pick(OPENERS[topic] || OPENERS.GENERIC, seed) + "\n\n";
 
   if (mem.horizon) {
-    reply += pick(HORIZON_CONFIRM[mem.horizon], seed) + "\n\n";
+    reply += pick(HORIZON_STYLE[mem.horizon].confirm, seed) + "\n\n";
+    reply += HORIZON_STYLE[mem.horizon].advice[signal] + "\n\n";
   }
 
   reply += `Kararım: **${signal}** (Güven: %${confidence})`;
