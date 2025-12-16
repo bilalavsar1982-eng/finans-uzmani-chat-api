@@ -3,7 +3,7 @@ const cors = require("cors");
 const cron = require("node-cron");
 
 // =============================
-// RENDER DEPLOY KORUMA (ÇÖKMEYİ ENGELLER)
+// RENDER DEPLOY KORUMA
 // =============================
 process.on("uncaughtException", (err) => {
   console.error("UNCAUGHT EXCEPTION:", err);
@@ -17,15 +17,11 @@ app.use(cors());
 app.use(express.json());
 
 // =============================
-// GÜNCELLEME KONTROL DEĞİŞKENLERİ
+// GÜNCELLEME KONTROL
 // =============================
-
-// Son güncelleme günü (YYYY-MM-DD)
 let lastUpdateDay = "";
-// Aynı anda 2 kere çalışmasın diye basit kilit
 let updateLock = false;
 
-// Türkiye saatiyle bugünün tarihi
 function todayKey() {
   return new Intl.DateTimeFormat("en-CA", {
     timeZone: "Europe/Istanbul",
@@ -35,61 +31,51 @@ function todayKey() {
   }).format(new Date());
 }
 
-// =============================
-// GÜNCELLEME İŞİ (ŞİMDİLİK SADECE İŞARET)
-// =============================
 function runDailyUpdate(reason = "cron") {
   if (updateLock) return { updated: false, reason: "locked" };
-
   updateLock = true;
-  const today = todayKey();
-
-  // ⚠️ Buraya ileride gerçek fiyat çekme / sinyal güncelleme koyacaksın
-  lastUpdateDay = today;
-
+  lastUpdateDay = todayKey();
   updateLock = false;
   return { updated: true, reason };
 }
 
-// =============================
-// CRON – GÜNDE 1 KERE 10:00
-// =============================
 cron.schedule(
   "0 10 * * *",
   () => {
-    const result = runDailyUpdate("cron_10_00");
-    console.log("[CRON 10:00]", result);
+    console.log("[CRON 10:00]", runDailyUpdate("cron_10_00"));
   },
-  {
-    timezone: "Europe/Istanbul",
-  }
+  { timezone: "Europe/Istanbul" }
 );
 
-// =============================
-// KULLANICI GİRİNCE KONTROL
-// =============================
 app.post("/check-update", (req, res) => {
   const today = todayKey();
-
   if (lastUpdateDay === today) {
-    return res.json({
-      ok: true,
-      updated: false,
-      message: "Bugün zaten güncellendi",
-    });
+    return res.json({ ok: true, updated: false });
   }
-
-  const result = runDailyUpdate("user_open");
-  return res.json({
-    ok: true,
-    updated: result.updated,
-    message: "Kullanıcı girişinde güncellendi",
-  });
+  return res.json({ ok: true, ...runDailyUpdate("user_open") });
 });
 
-// -----------------------------
-// Deterministic seçim
-// -----------------------------
+// =============================
+// 🔥 HAFIZA (ÇOKLU KULLANICI)
+// =============================
+const sessions = {}; // RAM – FREE plan için yeterli
+
+function getSession(id) {
+  if (!sessions[id]) {
+    sessions[id] = {
+      horizon: null, // SHORT / LONG
+      askedHorizon: false,
+      lastTopic: null,
+      updatedAt: Date.now(),
+    };
+  }
+  sessions[id].updatedAt = Date.now();
+  return sessions[id];
+}
+
+// =============================
+// UTIL
+// =============================
 function hash32(str = "") {
   let h = 2166136261;
   for (let i = 0; i < str.length; i++) {
@@ -99,100 +85,124 @@ function hash32(str = "") {
   return h >>> 0;
 }
 function pick(arr, seed) {
-  if (!arr || arr.length === 0) return "";
   return arr[seed % arr.length];
 }
-function clamp(n, min, max) {
-  return Math.max(min, Math.min(max, n));
-}
 
-// -----------------------------
-// Ürün/Konu tespiti
-// -----------------------------
+// =============================
+// KONU TESPİTİ
+// =============================
 function detectTopic(message = "", code = "") {
-  const t = (message || "").toUpperCase();
-  const c = (code || "").toUpperCase();
+  const t = message.toUpperCase();
+  const c = code.toUpperCase();
 
-  if (c.includes("USD") || t.includes("DOLAR") || t.includes("USD")) return "USD";
-  if (c.includes("EUR") || t.includes("EURO") || t.includes("EUR")) return "EUR";
-  if (c.includes("ONS") || t.includes("ONS")) return "ONS";
-  if (c.includes("GUMUS") || t.includes("GÜMÜŞ")) return "SILVER";
-  if (
-    t.includes("ALTIN") ||
-    t.includes("GRAM") ||
-    t.includes("ÇEYREK") ||
-    t.includes("CEYREK") ||
-    t.includes("ATA") ||
-    t.includes("22")
-  )
-    return "GOLD";
-
+  if (c.includes("USD") || t.includes("DOLAR")) return "USD";
+  if (c.includes("EUR") || t.includes("EURO")) return "EUR";
+  if (c.includes("ONS")) return "ONS";
+  if (t.includes("GUMUS") || t.includes("GÜMÜŞ")) return "SILVER";
+  if (t.includes("ALTIN") || t.includes("GRAM") || t.includes("ÇEYREK") || t.includes("ATA")) return "GOLD";
   return "GENERIC";
 }
 
-// -----------------------------
-// Basit sinyal
-// -----------------------------
+// =============================
+// SİNYAL (BASİT)
+// =============================
 function decideSignal(body) {
-  let signal = "BEKLE";
-  let confidence = 55;
-
-  if (body.trend === "UP") {
-    signal = "AL";
-    confidence = 65;
-  } else if (body.trend === "DOWN") {
-    signal = "SAT";
-    confidence = 65;
-  }
-
-  return { signal, confidence };
+  if (body.trend === "UP") return { signal: "AL", confidence: 65 };
+  if (body.trend === "DOWN") return { signal: "SAT", confidence: 65 };
+  return { signal: "BEKLE", confidence: 55 };
 }
 
-// -----------------------------
-// Cevap üretimi
-// -----------------------------
-function buildReply(body) {
-  const message = body.message || "";
-  const seed = hash32(message.toLowerCase());
-  const topic = detectTopic(message, body.code || "");
-  const { signal, confidence } = decideSignal(body);
+// =============================
+// CÜMLE HAVUZLARI
+// =============================
+const OPENERS = {
+  GOLD: [
+    "Altın tarafında şu an temkinli olmak gerekiyor.",
+    "Altında acele karar vermek risk yaratabilir.",
+    "Altın cephesinde yön netleşmeden işlem zor."
+  ],
+  USD: [
+    "Kur tarafında dalgalı bir görünüm var.",
+    "Dolar/TL hareketleri kısa sürede yön değiştirebilir."
+  ],
+  GENERIC: [
+    "Piyasa şu an net bir yön vermiyor.",
+    "Bu koşullarda dikkatli ilerlemek daha sağlıklı."
+  ]
+};
 
-  const openers = {
-    GOLD: "Altın tarafında acele karar vermek risklidir.",
-    USD: "Kur tarafında dalgalanma devam ediyor.",
-    EUR: "Euro cephesinde yön teyidi önemli.",
-    ONS: "Ons altın küresel verilerden etkileniyor.",
-    SILVER: "Gümüş daha sert hareket edebilir.",
-    GENERIC: "Bu tür sorularda temkinli olmak gerekir.",
-  };
+const HORIZON_ASK = [
+  "Kısa vade mi (1 hafta) yoksa daha uzun vade mi düşünüyorsun?",
+  "Buna 1 haftalık mı yoksa uzun vadeli mi bakmamı istersin?"
+];
+
+const HORIZON_CONFIRM = {
+  SHORT: [
+    "1 haftalık perspektifle değerlendiriyorum.",
+    "Kısa vadeli (1 hafta) bakış açısıyla devam ediyorum."
+  ],
+  LONG: [
+    "Uzun vadeli perspektifle değerlendiriyorum.",
+    "Daha geniş vadeli bakış açısıyla yorumluyorum."
+  ]
+};
+
+// =============================
+// CEVAP ÜRETİMİ (İNSAN GİBİ)
+// =============================
+function buildReply(body) {
+  const message = (body.message || "").toLowerCase();
+  const sessionId = body.sessionId || "anon";
+  const mem = getSession(sessionId);
+
+  // Vade yakala
+  if (message.includes("1 hafta") || message.includes("kısa")) {
+    mem.horizon = "SHORT";
+  } else if (message.includes("uzun")) {
+    mem.horizon = "LONG";
+  }
+
+  const topic = detectTopic(message, body.code || "");
+  mem.lastTopic = topic;
+
+  // Vade bilinmiyorsa 1 kere sor
+  if (!mem.horizon) {
+    if (!mem.askedHorizon) {
+      mem.askedHorizon = true;
+      return pick(HORIZON_ASK, hash32(sessionId));
+    }
+  }
+
+  const { signal, confidence } = decideSignal(body);
+  const seed = hash32(sessionId + topic + signal);
 
   let reply = "";
-  reply += `${openers[topic]}\n\n`;
-  reply += `Kararım: **${signal}** (Güven: %${confidence})\n\n`;
-  reply += "Not: Bu yorum yatırım tavsiyesi değildir.";
+  reply += pick(OPENERS[topic] || OPENERS.GENERIC, seed) + "\n\n";
+
+  if (mem.horizon) {
+    reply += pick(HORIZON_CONFIRM[mem.horizon], seed) + "\n\n";
+  }
+
+  reply += `Kararım: **${signal}** (Güven: %${confidence})`;
 
   return reply;
 }
 
-// -----------------------------
-// Routes
-// -----------------------------
+// =============================
+// ROUTES
+// =============================
 app.get("/", (req, res) => {
   res.send("Finans Uzmanı Chat API çalışıyor.");
 });
 
 app.post("/finans-uzmani", (req, res) => {
   try {
-    const { message } = req.body || {};
-    if (!message) {
+    if (!req.body || !req.body.message) {
       return res.json({ reply: "Mesaj boş görünüyor." });
     }
-    const reply = buildReply(req.body);
-    return res.json({ reply });
+    return res.json({ reply: buildReply(req.body) });
   } catch (e) {
-    return res.status(500).json({
-      reply: "Geçici bir hata oluştu, tekrar dener misin?",
-    });
+    return res.status(500).json({ reply: "Geçici bir hata oluştu." });
   }
 });
 
