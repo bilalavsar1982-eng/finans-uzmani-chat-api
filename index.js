@@ -63,7 +63,8 @@ const sessions = {};
 function getSession(id) {
   if (!sessions[id]) {
     sessions[id] = {
-      horizon: null, // SHORT / LONG
+      horizon: null,
+      prevHorizon: null,
       askedHorizon: false,
       lastTopic: null,
       updatedAt: Date.now(),
@@ -99,7 +100,13 @@ function detectTopic(message = "", code = "") {
   if (c.includes("EUR") || t.includes("EURO")) return "EUR";
   if (c.includes("ONS")) return "ONS";
   if (t.includes("GUMUS") || t.includes("GÜMÜŞ")) return "SILVER";
-  if (t.includes("ALTIN") || t.includes("GRAM") || t.includes("ÇEYREK") || t.includes("ATA")) return "GOLD";
+  if (
+    t.includes("ALTIN") ||
+    t.includes("GRAM") ||
+    t.includes("ÇEYREK") ||
+    t.includes("ATA")
+  )
+    return "GOLD";
   return "GENERIC";
 }
 
@@ -119,74 +126,91 @@ const OPENERS = {
   GOLD: [
     "Altın tarafında şu an temkinli bir görünüm var.",
     "Altında karar verirken acele etmemek gerekiyor.",
-    "Altın cephesinde netlik henüz tam oluşmuş değil."
+    "Altın cephesinde netlik henüz tam oluşmuş değil.",
   ],
   USD: [
     "Kur tarafında hareketler dalgalı.",
-    "Dolar/TL kısa sürede yön değiştirebilir."
+    "Dolar/TL kısa sürede yön değiştirebilir.",
   ],
   GENERIC: [
     "Piyasa şu an net bir yön vermiyor.",
-    "Bu koşullarda dikkatli ilerlemek daha sağlıklı."
-  ]
+    "Bu koşullarda dikkatli ilerlemek daha sağlıklı.",
+  ],
 };
 
 const HORIZON_ASK = [
   "Buna 1 haftalık mı yoksa daha uzun vadeli mi bakmamı istersin?",
-  "Kısa vade (1 hafta) mi, uzun vade mi düşünüyorsun?"
+  "Kısa vade (1 hafta) mi, uzun vade mi düşünüyorsun?",
 ];
+
+const HORIZON_SWITCH = {
+  SHORT: "Tamam, kısa vadeye (1 hafta) geçiyorum.",
+  LONG: "Anladım, uzun vadeli bakış açısına geçiyorum.",
+};
 
 const HORIZON_STYLE = {
   SHORT: {
     confirm: [
       "1 haftalık kısa vadeli bakış açısıyla değerlendiriyorum.",
-      "Kısa vadede (1 hafta) hareketlere odaklanıyorum."
+      "Kısa vadede (1 hafta) fiyat hareketlerine odaklanıyorum.",
     ],
     advice: {
-      AL: "Kısa vadede alım yapılacaksa hızlı hareketlere karşı dikkatli olunmalı.",
+      AL: "Kısa vadede alım yapılacaksa hızlı dalgalanmalara dikkat edilmeli.",
       SAT: "Kısa vadede zararın büyümemesi için temkinli olmak önemli.",
-      BEKLE: "Kısa vadede net yön oluşmadan işlem açmamak daha sağlıklı."
-    }
+      BEKLE: "Kısa vadede net yön oluşmadan işlem açmamak daha sağlıklı.",
+    },
   },
   LONG: {
     confirm: [
       "Uzun vadeli perspektifle değerlendiriyorum.",
-      "Daha geniş vadeli bakış açısıyla yorumluyorum."
+      "Daha geniş zaman dilimine göre yorumluyorum.",
     ],
     advice: {
       AL: "Uzun vadede alımların parçalı yapılması riski azaltır.",
       SAT: "Uzun vadede kâr realizasyonu düşünülebilir.",
-      BEKLE: "Uzun vadede daha net seviyeler beklenebilir."
-    }
-  }
+      BEKLE: "Uzun vadede daha net seviyeler beklenebilir.",
+    },
+  },
 };
 
 // =============================
-// CEVAP ÜRETİMİ
+// CEVAP ÜRETİMİ — SEVİYE 3
 // =============================
 function buildReply(body) {
   const message = (body.message || "").toLowerCase();
   const sessionId = body.sessionId || "anon";
   const mem = getSession(sessionId);
 
+  // Vade yakala
   if (message.includes("1 hafta") || message.includes("kısa")) {
+    mem.prevHorizon = mem.horizon;
     mem.horizon = "SHORT";
   } else if (message.includes("uzun")) {
+    mem.prevHorizon = mem.horizon;
     mem.horizon = "LONG";
   }
 
   const topic = detectTopic(message, body.code || "");
   mem.lastTopic = topic;
 
+  // İlk defa vade sor
   if (!mem.horizon && !mem.askedHorizon) {
     mem.askedHorizon = true;
     return pick(HORIZON_ASK, hash32(sessionId));
   }
 
   const { signal, confidence } = decideSignal(body);
-  const seed = hash32(sessionId + topic + signal);
+
+  // 🔥 SEED artık VADeyi de içeriyor → cevap değişir
+  const seed = hash32(sessionId + topic + signal + mem.horizon);
 
   let reply = "";
+
+  // Vade değiştiyse bunu söyle
+  if (mem.prevHorizon && mem.prevHorizon !== mem.horizon) {
+    reply += HORIZON_SWITCH[mem.horizon] + "\n\n";
+  }
+
   reply += pick(OPENERS[topic] || OPENERS.GENERIC, seed) + "\n\n";
 
   if (mem.horizon) {
