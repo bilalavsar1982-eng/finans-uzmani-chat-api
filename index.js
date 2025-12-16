@@ -2,6 +2,16 @@ const express = require("express");
 const cors = require("cors");
 const cron = require("node-cron");
 
+// =============================
+// RENDER DEPLOY KORUMA (ÇÖKMEYİ ENGELLER)
+// =============================
+process.on("uncaughtException", (err) => {
+  console.error("UNCAUGHT EXCEPTION:", err);
+});
+process.on("unhandledRejection", (reason) => {
+  console.error("UNHANDLED REJECTION:", reason);
+});
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -78,7 +88,7 @@ app.post("/check-update", (req, res) => {
 });
 
 // -----------------------------
-// Deterministic seçim (aynı mesaj -> aynı cevap)
+// Deterministic seçim
 // -----------------------------
 function hash32(str = "") {
   let h = 2166136261;
@@ -118,14 +128,6 @@ function detectTopic(message = "", code = "") {
     return "GOLD";
 
   return "GENERIC";
-}
-
-function detectIntent(message = "") {
-  const t = (message || "").toLowerCase();
-  if (t.includes("alınır") || t.includes("al")) return "BUY";
-  if (t.includes("satılır") || t.includes("sat")) return "SELL";
-  if (t.includes("neden")) return "WHY";
-  return "GENERAL";
 }
 
 // -----------------------------
