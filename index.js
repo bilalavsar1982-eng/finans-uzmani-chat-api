@@ -90,7 +90,7 @@ function buildReply(body) {
   const sessionId = body.sessionId || "anon";
   const mem = getSession(sessionId);
 
-  if (msg.includes("kısa") || msg.includes("1 hafta")) mem.horizon = "SHORT";
+  if (msg.includes("kısa") || msg.includes("kisa") || msg.includes("1 hafta")) mem.horizon = "SHORT";
   if (msg.includes("uzun")) mem.horizon = "LONG";
 
   if (!mem.horizon && !mem.askedHorizon) {
