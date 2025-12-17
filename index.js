@@ -70,27 +70,33 @@ function translateSignal(sig) {
 }
 
 // =============================
-// KONU
+// ENSTRÜMAN TESPİTİ (ÜRÜNE ÖZEL)
 // =============================
-function detectTopic(msg) {
-  if (
-    msg.includes("altın") ||
-    msg.includes("gram") ||
-    msg.includes("çeyrek")
-  )
-    return "GOLD";
+function detectInstrument(msg) {
+  if (msg.includes("dolar") || msg.includes("usd")) return "USDTRY";
+  if (msg.includes("euro") || msg.includes("eur")) return "EURTRY";
+  if (msg.includes("ons")) return "ONS";
+  if (msg.includes("ata")) return "ATA";
+  if (msg.includes("çeyrek")) return "CEYREK";
+  if (msg.includes("yarım")) return "YARIM";
+  if (msg.includes("tam")) return "TAM";
+  if (msg.includes("bilezik")) return "BILEZIK_22";
+  if (msg.includes("gram")) return "GRAM";
+  if (msg.includes("gümüş")) return "GUMUS";
+  if (msg.includes("altın")) return "ALTIN_GENEL";
   return "GENERIC";
 }
 
 // =============================
-// CEVAP ÜRETİMİ — GELİŞTİRİLMİŞ
+// CEVAP ÜRETİMİ — TAM
 // =============================
 function buildReply(body) {
   const msg = (body.message || "").toLowerCase();
   const sessionId = body.sessionId || "anon";
   const mem = getSession(sessionId);
 
-  if (msg.includes("kısa") || msg.includes("kisa") || msg.includes("1 hafta")) mem.horizon = "SHORT";
+  if (msg.includes("kısa") || msg.includes("kisa") || msg.includes("1 hafta"))
+    mem.horizon = "SHORT";
   if (msg.includes("uzun")) mem.horizon = "LONG";
 
   if (!mem.horizon && !mem.askedHorizon) {
@@ -98,9 +104,8 @@ function buildReply(body) {
     return "Buna kısa vadeli (1 hafta) mi yoksa uzun vadeli mi bakmamı istersin?";
   }
 
-  const topic = detectTopic(msg);
+  const instrument = detectInstrument(msg);
 
-  // 🔥 ANDROID'DEN GELEN GERÇEK VERİ
   const rawSignal = body.signal || "HOLD";
   const signal = translateSignal(rawSignal);
 
@@ -125,13 +130,51 @@ function buildReply(body) {
 
   let reply = "";
 
-  if (topic === "GOLD") {
+  // =============================
+  // ÜRÜNE ÖZEL GİRİŞ
+  // =============================
+  if (instrument === "USDTRY") {
     reply +=
-      "Altın için değerlendirme, teknik veriler ve güncel haber akışı birlikte ele alınarak yapılmıştır.\n\n";
+      "Dolar/TL için değerlendirme; yurt içi enflasyon, TCMB politikaları ve küresel dolar endeksi dikkate alınarak yapılmıştır.\n\n";
+  }
+
+  if (instrument === "EURTRY") {
+    reply +=
+      "Euro/TL değerlendirmesi; Euro Bölgesi verileri ve parite hareketleri dikkate alınarak yapılmıştır.\n\n";
+  }
+
+  if (instrument === "GRAM") {
+    reply +=
+      "Gram altın değerlendirmesi; ons altın ve dolar/TL birlikte ele alınarak yapılmıştır.\n\n";
+  }
+
+  if (
+    instrument === "ATA" ||
+    instrument === "CEYREK" ||
+    instrument === "YARIM" ||
+    instrument === "TAM"
+  ) {
+    reply +=
+      "Bu ürün için değerlendirme; gram altın fiyatı, piyasa primi ve kuyumcu makası dikkate alınarak yapılmıştır.\n\n";
+  }
+
+  if (instrument === "BILEZIK_22") {
+    reply +=
+      "22 ayar bilezik değerlendirmesi; gram altın fiyatı ve işçilik maliyetleri dikkate alınarak yapılmıştır.\n\n";
+  }
+
+  if (instrument === "ONS") {
+    reply +=
+      "Ons altın değerlendirmesi; ABD faiz beklentileri, küresel risk algısı ve dolar endeksi temel alınarak yapılmıştır.\n\n";
+  }
+
+  if (instrument === "GUMUS") {
+    reply +=
+      "Gümüş için değerlendirme; sanayi talebi ve değerli metaller piyasası dikkate alınarak yapılmıştır.\n\n";
   }
 
   // =============================
-  // 🔎 KISA VADE — 3 MADDELİ
+  // KISA VADE — 3 MADDE
   // =============================
   if (mem.horizon === "SHORT") {
     reply += "🔎 **Kısa vadeli (1 haftalık) değerlendirme:**\n";
@@ -142,22 +185,22 @@ function buildReply(body) {
       reasons.push(
         `Son 7 günlük fiyat değişimi %${weekly.toFixed(
           1
-        )} seviyesinde, bu da kısa vadede dalgalanmanın sürdüğünü gösteriyor`
+        )} seviyesinde`
       );
     }
 
     if (newsScore > technical) {
       reasons.push(
-        "Kısa vadede fiyat hareketleri üzerinde haber etkisi teknik göstergelere göre daha baskın"
+        "Haber akışı kısa vadede fiyat hareketlerinde daha baskın"
       );
     } else {
       reasons.push(
-        "Teknik göstergeler kısa vadede fiyat yönü üzerinde daha belirleyici"
+        "Teknik göstergeler kısa vadede fiyat yönünde daha etkili"
       );
     }
 
     reasons.push(
-      "Kısa vadeli işlemlerde ani yön değişimleri görülebildiği için risk seviyesi yüksek"
+      "Kısa vadede ani yön değişimleri görülebileceği için risk seviyesi yüksek"
     );
 
     reasons.slice(0, 3).forEach((r, i) => {
@@ -175,23 +218,23 @@ function buildReply(body) {
   }
 
   // =============================
-  // 📈 UZUN VADE — MAKRO + TEKNİK
+  // UZUN VADE — MAKRO + TEKNİK
   // =============================
   if (mem.horizon === "LONG") {
     reply += "📈 **Uzun vadeli değerlendirme:**\n\n";
 
     reply += "🌍 **Makro görünüm:**\n";
     reply +=
-      "Uzun vadede altın fiyatları enflasyon beklentileri, küresel risk algısı ve merkez bankalarının para politikalarıyla şekilleniyor.\n\n";
+      "Enflasyon beklentileri, küresel risk algısı ve merkez bankalarının para politikaları belirleyici konumda.\n\n";
 
     reply += "📊 **Teknik görünüm:**\n";
     if (monthly !== undefined) {
-      reply += `Son 1 ayda fiyatlarda yaklaşık %${monthly.toFixed(
+      reply += `Son 1 ayda yaklaşık %${monthly.toFixed(
         1
-      )}’lik bir değişim var. `;
+      )}’lik fiyat hareketi görülüyor. `;
     }
     reply +=
-      "Bu görünüm, uzun vadede yönün daha sağlıklı değerlendirilmesine imkan tanıyor.\n\n";
+      "Bu yapı uzun vadeli yönün daha sağlıklı değerlendirilmesine imkan tanıyor.\n\n";
   }
 
   reply += `Kararım: **${signal}** (Güven: %${confidence})`;
