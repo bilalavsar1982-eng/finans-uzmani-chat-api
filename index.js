@@ -32,15 +32,15 @@ function todayKey() {
 }
 
 function runDailyUpdate(reason = "cron") {
-  if (updateLock) return { updated: false, reason: "locked" };
+  if (updateLock) return { updated: false };
   updateLock = true;
   lastUpdateDay = todayKey();
   updateLock = false;
-  return { updated: true, reason };
+  return { updated: true };
 }
 
 cron.schedule("0 10 * * *", () => {
-  console.log("[CRON 10:00]", runDailyUpdate("cron_10_00"));
+  runDailyUpdate("cron");
 }, { timezone: "Europe/Istanbul" });
 
 // =============================
@@ -64,26 +64,23 @@ function clamp(n, min, max) {
   return Math.max(min, Math.min(max, n));
 }
 
-// =============================
-// INTENT ALGILAMA
-// =============================
-function detectIntent(msg) {
-  if (msg.includes("alayım") || msg.includes("alalım")) return "BUY";
-  if (msg.includes("satayım") || msg.includes("satalım")) return "SELL";
-  return "INFO";
+function translateSignal(sig) {
+  if (sig === "BUY") return "AL";
+  if (sig === "SELL") return "SAT";
+  return "BEKLE";
 }
 
 // =============================
 // KONU
 // =============================
 function detectTopic(msg) {
-  if (msg.includes("çeyrek") || msg.includes("altın") || msg.includes("gram"))
+  if (msg.includes("altın") || msg.includes("gram") || msg.includes("çeyrek"))
     return "GOLD";
   return "GENERIC";
 }
 
 // =============================
-// CEVAP ÜRETİMİ — GERÇEK VERİLİ
+// CEVAP ÜRETİMİ — GERÇEK ANALİZLİ
 // =============================
 function buildReply(body) {
   const msg = (body.message || "").toLowerCase();
@@ -98,16 +95,18 @@ function buildReply(body) {
     return "Buna kısa vadeli (1 hafta) mi yoksa uzun vadeli mi bakmamı istersin?";
   }
 
-  const intent = detectIntent(msg);
   const topic = detectTopic(msg);
 
-  // 🔥 ANDROID'DEN GELEN GERÇEK ANALİZ
-  const signal = body.signal || "BEKLE";
+  // 🔥 GERÇEK ANALİZ
+  const rawSignal = body.signal || "HOLD";
+  const signal = translateSignal(rawSignal);
   const finalScore = typeof body.finalScore === "number" ? body.finalScore : 0;
+  const technical = body.technicalScore || 0;
+  const news = body.newsScore || 0;
+
   const weekly = body.weeklyPct;
   const monthly = body.monthlyPct;
 
-  // 🔥 GÜVEN YÜZDESİ (GERÇEK)
   const confidence = clamp(
     Math.round(50 + Math.abs(finalScore) * 10),
     50,
@@ -118,25 +117,47 @@ function buildReply(body) {
 
   if (topic === "GOLD") {
     reply +=
-      "Altın tarafında mevcut fiyat hareketleri hem teknik hem de haber etkileriyle şekilleniyor.\n\n";
+      "Altın tarafında fiyat hareketleri hem teknik göstergeler hem de haber akışıyla birlikte değerlendiriliyor.\n\n";
   }
 
+  // =============================
+  // KISA VADE
+  // =============================
   if (mem.horizon === "SHORT") {
     reply += "🔎 **Kısa vadeli (1 haftalık) değerlendirme:**\n";
+
     if (weekly !== undefined) {
-      reply += `Son 7 günde yaklaşık %${weekly.toFixed(1)}’lik bir değişim görülüyor. `;
+      reply += `Son 7 günde yaklaşık %${weekly.toFixed(
+        1
+      )}’lik bir fiyat hareketi var. `;
     }
+
+    if (news > technical) {
+      reply +=
+        "Kısa vadede karar üzerinde özellikle **haber etkisinin** daha baskın olduğu görülüyor. ";
+    } else {
+      reply +=
+        "Kısa vadede fiyat yönünde **teknik göstergeler** daha belirleyici görünüyor. ";
+    }
+
     reply +=
-      "Kısa vadede dalgalanma riski yüksek olduğu için daha temkinli bir yaklaşım öne çıkıyor.\n\n";
+      "Bu nedenle ani dalgalanmalara karşı temkinli olunması daha dengeli bir yaklaşım olabilir.\n\n";
   }
 
+  // =============================
+  // UZUN VADE
+  // =============================
   if (mem.horizon === "LONG") {
     reply += "📈 **Uzun vadeli değerlendirme:**\n";
+
     if (monthly !== undefined) {
-      reply += `Son 1 ayda yaklaşık %${monthly.toFixed(1)}’lik bir hareket var. `;
+      reply += `Son 1 ayda yaklaşık %${monthly.toFixed(
+        1
+      )}’lik bir değişim söz konusu. `;
     }
+
     reply +=
-      "Uzun vadede ise genel trend ve makro koşullar daha belirleyici oluyor.\n\n";
+      "Uzun vadede genel trend, enflasyon beklentileri ve küresel risk algısı daha belirleyici oluyor.\n\n";
   }
 
   reply += `Kararım: **${signal}** (Güven: %${confidence})`;
@@ -145,7 +166,7 @@ function buildReply(body) {
 }
 
 // =============================
-// ROUTES
+// ROUTE
 // =============================
 app.post("/finans-uzmani", (req, res) => {
   try {
