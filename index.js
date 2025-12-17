@@ -38,11 +38,9 @@ function runDailyUpdate() {
   updateLock = false;
 }
 
-cron.schedule(
-  "0 10 * * *",
-  runDailyUpdate,
-  { timezone: "Europe/Istanbul" }
-);
+cron.schedule("0 10 * * *", runDailyUpdate, {
+  timezone: "Europe/Istanbul",
+});
 
 // =============================
 // HAFIZA
@@ -79,12 +77,13 @@ function detectTopic(msg) {
     msg.includes("altın") ||
     msg.includes("gram") ||
     msg.includes("çeyrek")
-  ) return "GOLD";
+  )
+    return "GOLD";
   return "GENERIC";
 }
 
 // =============================
-// CEVAP ÜRETİMİ — HABER BAŞLIKLI
+// CEVAP ÜRETİMİ — GELİŞTİRİLMİŞ
 // =============================
 function buildReply(body) {
   const msg = (body.message || "").toLowerCase();
@@ -101,10 +100,12 @@ function buildReply(body) {
 
   const topic = detectTopic(msg);
 
-  // 🔥 GERÇEK ANALİZ
+  // 🔥 ANDROID'DEN GELEN GERÇEK VERİ
   const rawSignal = body.signal || "HOLD";
   const signal = translateSignal(rawSignal);
-  const finalScore = typeof body.finalScore === "number" ? body.finalScore : 0;
+
+  const finalScore =
+    typeof body.finalScore === "number" ? body.finalScore : 0;
 
   const technical = body.technicalScore || 0;
   const newsScore = body.newsScore || 0;
@@ -113,7 +114,7 @@ function buildReply(body) {
   const monthly = body.monthlyPct;
 
   const newsTitles = Array.isArray(body.newsTitles)
-    ? body.newsTitles.slice(0, 2)
+    ? body.newsTitles.slice(0, 3)
     : [];
 
   const confidence = clamp(
@@ -126,54 +127,71 @@ function buildReply(body) {
 
   if (topic === "GOLD") {
     reply +=
-      "Altın tarafında fiyatlar hem teknik görünüm hem de güncel haber akışı birlikte değerlendirilerek yorumlanıyor.\n\n";
+      "Altın için değerlendirme, teknik veriler ve güncel haber akışı birlikte ele alınarak yapılmıştır.\n\n";
   }
 
   // =============================
-  // KISA VADE
+  // 🔎 KISA VADE — 3 MADDELİ
   // =============================
   if (mem.horizon === "SHORT") {
     reply += "🔎 **Kısa vadeli (1 haftalık) değerlendirme:**\n";
 
+    let reasons = [];
+
     if (weekly !== undefined) {
-      reply += `Son 7 günde yaklaşık %${weekly.toFixed(
-        1
-      )}’lik bir hareket gözleniyor. `;
+      reasons.push(
+        `Son 7 günlük fiyat değişimi %${weekly.toFixed(
+          1
+        )} seviyesinde, bu da kısa vadede dalgalanmanın sürdüğünü gösteriyor`
+      );
     }
 
     if (newsScore > technical) {
-      reply +=
-        "Bu süreçte kısa vadeli fiyat davranışında özellikle **haber etkisinin** daha baskın olduğu görülüyor.\n";
+      reasons.push(
+        "Kısa vadede fiyat hareketleri üzerinde haber etkisi teknik göstergelere göre daha baskın"
+      );
     } else {
-      reply +=
-        "Kısa vadede fiyat yönü üzerinde **teknik göstergeler** daha belirleyici görünüyor.\n";
+      reasons.push(
+        "Teknik göstergeler kısa vadede fiyat yönü üzerinde daha belirleyici"
+      );
     }
+
+    reasons.push(
+      "Kısa vadeli işlemlerde ani yön değişimleri görülebildiği için risk seviyesi yüksek"
+    );
+
+    reasons.slice(0, 3).forEach((r, i) => {
+      reply += `${i + 1}. ${r}\n`;
+    });
 
     if (newsTitles.length > 0) {
       reply += "\n📰 **Öne çıkan haber başlıkları:**\n";
-      newsTitles.forEach(t => {
+      newsTitles.forEach((t) => {
         reply += `• ${t}\n`;
       });
     }
 
-    reply +=
-      "\nBu nedenle kısa vadede ani hareketlere karşı temkinli bir duruş daha sağlıklı olabilir.\n\n";
+    reply += "\n";
   }
 
   // =============================
-  // UZUN VADE
+  // 📈 UZUN VADE — MAKRO + TEKNİK
   // =============================
   if (mem.horizon === "LONG") {
-    reply += "📈 **Uzun vadeli değerlendirme:**\n";
+    reply += "📈 **Uzun vadeli değerlendirme:**\n\n";
 
-    if (monthly !== undefined) {
-      reply += `Son 1 ayda yaklaşık %${monthly.toFixed(
-        1
-      )}’lik bir fiyat değişimi söz konusu. `;
-    }
-
+    reply += "🌍 **Makro görünüm:**\n";
     reply +=
-      "Uzun vadede ise makroekonomik koşullar, enflasyon beklentileri ve küresel risk algısı daha belirleyici oluyor.\n\n";
+      "Uzun vadede altın fiyatları enflasyon beklentileri, küresel risk algısı ve merkez bankalarının para politikalarıyla şekilleniyor.\n\n";
+
+    reply += "📊 **Teknik görünüm:**\n";
+    if (monthly !== undefined) {
+      reply += `Son 1 ayda fiyatlarda yaklaşık %${monthly.toFixed(
+        1
+      )}’lik bir değişim var. `;
+    }
+    reply +=
+      "Bu görünüm, uzun vadede yönün daha sağlıklı değerlendirilmesine imkan tanıyor.\n\n";
   }
 
   reply += `Kararım: **${signal}** (Güven: %${confidence})`;
