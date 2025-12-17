@@ -31,17 +31,18 @@ function todayKey() {
   }).format(new Date());
 }
 
-function runDailyUpdate(reason = "cron") {
-  if (updateLock) return { updated: false };
+function runDailyUpdate() {
+  if (updateLock) return;
   updateLock = true;
   lastUpdateDay = todayKey();
   updateLock = false;
-  return { updated: true };
 }
 
-cron.schedule("0 10 * * *", () => {
-  runDailyUpdate("cron");
-}, { timezone: "Europe/Istanbul" });
+cron.schedule(
+  "0 10 * * *",
+  runDailyUpdate,
+  { timezone: "Europe/Istanbul" }
+);
 
 // =============================
 // HAFIZA
@@ -74,13 +75,16 @@ function translateSignal(sig) {
 // KONU
 // =============================
 function detectTopic(msg) {
-  if (msg.includes("altın") || msg.includes("gram") || msg.includes("çeyrek"))
-    return "GOLD";
+  if (
+    msg.includes("altın") ||
+    msg.includes("gram") ||
+    msg.includes("çeyrek")
+  ) return "GOLD";
   return "GENERIC";
 }
 
 // =============================
-// CEVAP ÜRETİMİ — GERÇEK ANALİZLİ
+// CEVAP ÜRETİMİ — HABER BAŞLIKLI
 // =============================
 function buildReply(body) {
   const msg = (body.message || "").toLowerCase();
@@ -101,11 +105,16 @@ function buildReply(body) {
   const rawSignal = body.signal || "HOLD";
   const signal = translateSignal(rawSignal);
   const finalScore = typeof body.finalScore === "number" ? body.finalScore : 0;
+
   const technical = body.technicalScore || 0;
-  const news = body.newsScore || 0;
+  const newsScore = body.newsScore || 0;
 
   const weekly = body.weeklyPct;
   const monthly = body.monthlyPct;
+
+  const newsTitles = Array.isArray(body.newsTitles)
+    ? body.newsTitles.slice(0, 2)
+    : [];
 
   const confidence = clamp(
     Math.round(50 + Math.abs(finalScore) * 10),
@@ -117,7 +126,7 @@ function buildReply(body) {
 
   if (topic === "GOLD") {
     reply +=
-      "Altın tarafında fiyat hareketleri hem teknik göstergeler hem de haber akışıyla birlikte değerlendiriliyor.\n\n";
+      "Altın tarafında fiyatlar hem teknik görünüm hem de güncel haber akışı birlikte değerlendirilerek yorumlanıyor.\n\n";
   }
 
   // =============================
@@ -129,19 +138,26 @@ function buildReply(body) {
     if (weekly !== undefined) {
       reply += `Son 7 günde yaklaşık %${weekly.toFixed(
         1
-      )}’lik bir fiyat hareketi var. `;
+      )}’lik bir hareket gözleniyor. `;
     }
 
-    if (news > technical) {
+    if (newsScore > technical) {
       reply +=
-        "Kısa vadede karar üzerinde özellikle **haber etkisinin** daha baskın olduğu görülüyor. ";
+        "Bu süreçte kısa vadeli fiyat davranışında özellikle **haber etkisinin** daha baskın olduğu görülüyor.\n";
     } else {
       reply +=
-        "Kısa vadede fiyat yönünde **teknik göstergeler** daha belirleyici görünüyor. ";
+        "Kısa vadede fiyat yönü üzerinde **teknik göstergeler** daha belirleyici görünüyor.\n";
+    }
+
+    if (newsTitles.length > 0) {
+      reply += "\n📰 **Öne çıkan haber başlıkları:**\n";
+      newsTitles.forEach(t => {
+        reply += `• ${t}\n`;
+      });
     }
 
     reply +=
-      "Bu nedenle ani dalgalanmalara karşı temkinli olunması daha dengeli bir yaklaşım olabilir.\n\n";
+      "\nBu nedenle kısa vadede ani hareketlere karşı temkinli bir duruş daha sağlıklı olabilir.\n\n";
   }
 
   // =============================
@@ -153,11 +169,11 @@ function buildReply(body) {
     if (monthly !== undefined) {
       reply += `Son 1 ayda yaklaşık %${monthly.toFixed(
         1
-      )}’lik bir değişim söz konusu. `;
+      )}’lik bir fiyat değişimi söz konusu. `;
     }
 
     reply +=
-      "Uzun vadede genel trend, enflasyon beklentileri ve küresel risk algısı daha belirleyici oluyor.\n\n";
+      "Uzun vadede ise makroekonomik koşullar, enflasyon beklentileri ve küresel risk algısı daha belirleyici oluyor.\n\n";
   }
 
   reply += `Kararım: **${signal}** (Güven: %${confidence})`;
