@@ -170,21 +170,23 @@ function buildReply(body) {
 // ROUTE — FİNANS UZMANI
 // =============================
 app.post("/finans-uzmani", (req, res) => {
+  const isPro = req.body?.isPro === true;
   const clientKey = getClientKey(req);
 
   adminStats.totalRequests++;
   adminStats.uniqueClients.add(clientKey);
 
-  dailyUsage[clientKey] = (dailyUsage[clientKey] || 0) + 1;
+  if (!isPro) {
+    dailyUsage[clientKey] = (dailyUsage[clientKey] || 0) + 1;
 
-  // 🔒 4. SORUDA PRO KİLİDİ
-  if (dailyUsage[clientKey] > DAILY_LIMIT) {
-    adminStats.blockedRequests++;
-    return res.status(200).json({
-      reply:
-        "🔒 Günlük ücretsiz 3 soru hakkını doldurdun.\n\n" +
-        "Pro’ya geçerek sınırsız analiz alabilirsin.",
-    });
+    if (dailyUsage[clientKey] > DAILY_LIMIT) {
+      adminStats.blockedRequests++;
+      return res.status(200).json({
+        reply:
+          "🔒 Günlük ücretsiz 3 soru hakkını doldurdun.\n\n" +
+          "Pro’ya geçerek sınırsız analiz alabilirsin.",
+      });
+    }
   }
 
   try {
