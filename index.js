@@ -53,21 +53,13 @@ const adminStats = {
 };
 
 // =============================
-// GÜNCELLEME KONTROL
+// GÜNLÜK RESET
 // =============================
-let updateLock = false;
-
 function runDailyUpdate() {
-  if (updateLock) return;
-  updateLock = true;
-
-  // her gün sıfırla
   for (const k in dailyUsage) delete dailyUsage[k];
   adminStats.uniqueClients.clear();
   adminStats.totalRequests = 0;
   adminStats.blockedRequests = 0;
-
-  updateLock = false;
 }
 
 cron.schedule("0 0 * * *", runDailyUpdate, {
@@ -75,7 +67,7 @@ cron.schedule("0 0 * * *", runDailyUpdate, {
 });
 
 // =============================
-// HAFIZA (CHAT KONUŞMASI)
+// CHAT HAFIZA
 // =============================
 const sessions = {};
 
@@ -185,10 +177,13 @@ app.post("/finans-uzmani", (req, res) => {
 
   dailyUsage[clientKey] = (dailyUsage[clientKey] || 0) + 1;
 
+  // 🔒 4. SORUDA PRO KİLİDİ
   if (dailyUsage[clientKey] > DAILY_LIMIT) {
     adminStats.blockedRequests++;
-    return res.status(429).json({
-      reply: "Günlük ücretsiz soru limitin doldu (3/3).",
+    return res.status(200).json({
+      reply:
+        "🔒 Günlük ücretsiz 3 soru hakkını doldurdun.\n\n" +
+        "Pro’ya geçerek sınırsız analiz alabilirsin.",
     });
   }
 
@@ -202,7 +197,7 @@ app.post("/finans-uzmani", (req, res) => {
 });
 
 // =============================
-// ADMIN PANEL (JSON)
+// ADMIN PANEL
 // =============================
 app.get("/admin/stats", (req, res) => {
   const auth = req.headers.authorization || "";
@@ -211,10 +206,10 @@ app.get("/admin/stats", (req, res) => {
   }
 
   res.json({
+    date: todayKey(),
     totalRequests: adminStats.totalRequests,
     blockedRequests: adminStats.blockedRequests,
     uniqueUsers: adminStats.uniqueClients.size,
-    date: todayKey(),
   });
 });
 
