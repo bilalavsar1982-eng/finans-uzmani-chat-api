@@ -181,6 +181,72 @@ app.post("/translate", async (req, res) => {
   }
 });
 
+// =======================================================
+// 🔴 /haberler — mining.com/rss (TÜRKÇE)
+// =======================================================
+app.get("/haberler", async (req, res) => {
+  try {
+    const rssUrl = "https://www.mining.com/rss";
+    const rssRes = await fetch(rssUrl);
+    const xml = await rssRes.text();
+
+    const items = [];
+    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
+
+    let match;
+    while ((match = itemRegex.exec(xml)) !== null) {
+      const block = match[1];
+
+      const title =
+        block.match(/<title>([\s\S]*?)<\/title>/)?.[1]?.trim() || "";
+      const desc =
+        block.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/)
+          ?.[1]?.trim() || "";
+      const link =
+        block.match(/<link>([\s\S]*?)<\/link>/)?.[1]?.trim() || "";
+
+      if (!title) continue;
+
+      items.push({
+        title,
+        content: desc,
+        link,
+        date: new Date().toISOString(),
+        isTurkey: false,
+        importance: "LOW",
+      });
+    }
+
+    const out = [];
+
+    for (const n of items.slice(0, 15)) {
+      if (/[ğüşöçıİĞÜŞÖÇ]/i.test(n.title)) {
+        out.push(n);
+        continue;
+      }
+
+      const url =
+        "https://translate.googleapis.com/translate_a/single" +
+        "?client=gtx&sl=en&tl=tr&dt=t&q=" +
+        encodeURIComponent(n.title);
+
+      const r = await fetch(url);
+      const j = await r.json();
+      const trTitle = j[0].map((x) => x[0]).join("");
+
+      out.push({
+        ...n,
+        title: trTitle,
+      });
+    }
+
+    res.json(out);
+  } catch (e) {
+    console.error("HABERLER HATA:", e);
+    res.json([]);
+  }
+});
+
 // =============================
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
