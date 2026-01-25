@@ -2,11 +2,6 @@ const express = require("express");
 const cors = require("cors");
 const cron = require("node-cron");
 
-/* === SADECE EKLENENLER (GEREKLİ) === */
-const axios = require("axios");
-const cheerio = require("cheerio");
-/* ================================== */
-
 // =============================
 // RENDER DEPLOY KORUMA
 // =============================
@@ -162,42 +157,6 @@ app.post("/finans-uzmani", (req, res) => {
     });
   }
 });
-
-/* ===== SADECE EKLENEN ROUTE ===== */
-app.get("/metalsdaily/gold", async (req, res) => {
-  try {
-    const { data } = await axios.get(
-      "https://www.metalsdaily.com/news/gold-news/",
-      {
-        headers: {
-          "User-Agent":
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120",
-        },
-        timeout: 15000,
-      }
-    );
-
-    const $ = cheerio.load(data);
-    const news = [];
-
-    $("h3 a").each((_, el) => {
-      const title = $(el).text().trim();
-      if (title && news.length < 10) {
-        news.push({ title });
-      }
-    });
-
-    return res.json({
-      source: "metalsdaily",
-      count: news.length,
-      news,
-    });
-  } catch (err) {
-    console.error("METALSDAILY ERROR:", err.message);
-    return res.status(500).json({ error: "MetalsDaily çekilemedi" });
-  }
-});
-/* =============================== */
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
