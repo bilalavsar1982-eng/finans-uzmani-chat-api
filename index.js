@@ -170,7 +170,7 @@ app.post("/translate", async (req, res) => {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         q: text,
-        source: "en",
+        source: "auto",
         target: "tr",
         format: "text",
       }),
