@@ -220,23 +220,39 @@ app.get("/haberler", async (req, res) => {
     const out = [];
 
     for (const n of items.slice(0, 15)) {
+      // Zaten Türkçeyse dokunma
       if (/[ğüşöçıİĞÜŞÖÇ]/i.test(n.title)) {
         out.push(n);
         continue;
       }
 
-      const url =
+      // TITLE ÇEVİR
+      const titleUrl =
         "https://translate.googleapis.com/translate_a/single" +
         "?client=gtx&sl=en&tl=tr&dt=t&q=" +
         encodeURIComponent(n.title);
 
-      const r = await fetch(url);
-      const j = await r.json();
-      const trTitle = j[0].map((x) => x[0]).join("");
+      const trTitleRes = await fetch(titleUrl);
+      const trTitleJson = await trTitleRes.json();
+      const trTitle = trTitleJson[0].map((x) => x[0]).join("");
+
+      // CONTENT ÇEVİR
+      let trContent = n.content;
+      if (n.content) {
+        const contentUrl =
+          "https://translate.googleapis.com/translate_a/single" +
+          "?client=gtx&sl=en&tl=tr&dt=t&q=" +
+          encodeURIComponent(n.content);
+
+        const trContentRes = await fetch(contentUrl);
+        const trContentJson = await trContentRes.json();
+        trContent = trContentJson[0].map((x) => x[0]).join("");
+      }
 
       out.push({
         ...n,
         title: trTitle,
+        content: trContent,
       });
     }
 
