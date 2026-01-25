@@ -10,6 +10,8 @@
   "dependencies": {
     "express": "^4.19.2",
     "cors": "^2.8.5",
-    "node-cron": "^3.0.3"
+    "node-cron": "^3.0.3",
+    "axios": "^1.6.8",
+    "cheerio": "^1.0.0-rc.12"
   }
 }
