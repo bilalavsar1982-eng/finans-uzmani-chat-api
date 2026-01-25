@@ -89,7 +89,7 @@ function detectInstrument(msg) {
 }
 
 // =============================
-// CEVAP ÜRETİMİ — KONUŞAN BACKEND
+// CEVAP ÜRETİMİ
 // =============================
 function buildReply(body) {
   const msg = (body.message || "").toLowerCase();
@@ -146,21 +146,19 @@ function buildReply(body) {
 }
 
 // =============================
-// ROUTE — MEVCUT
+// ROUTE — FİNANS UZMANI
 // =============================
 app.post("/finans-uzmani", (req, res) => {
   try {
     return res.json({ reply: buildReply(req.body) });
-  } catch (e) {
-    return res.status(500).json({
-      reply: "Geçici bir hata oluştu.",
-    });
+  } catch {
+    return res.status(500).json({ reply: "Geçici bir hata oluştu." });
   }
 });
 
-// =======================================================
-// 🔴 /translate — GOOGLE TRANSLATE (KEYSİZ)
-// =======================================================
+// =============================
+// /translate — GOOGLE (KEYSİZ)
+// =============================
 app.post("/translate", async (req, res) => {
   try {
     const text = req.body.text || "";
@@ -173,22 +171,17 @@ app.post("/translate", async (req, res) => {
 
     const r = await fetch(url);
     const j = await r.json();
-
     const translated = j[0].map((x) => x[0]).join("");
+
     res.json({ translated });
-  } catch (e) {
+  } catch {
     res.json({ translated: req.body.text });
   }
 });
 
-// =======================================================
-// 🔴 /haberler — mining.com/rss (TÜRKÇE)
-// =======================================================
-app.get("/haberler", async (req, res) => {
-  console.log("🔥 /haberler ÇAĞRILDI");
-  ...
-});
-
+// =============================
+// /haberler — TÜRKÇE RSS
+// =============================
 app.get("/haberler", async (req, res) => {
   try {
     const rssUrl = "https://www.mining.com/rss";
@@ -225,40 +218,33 @@ app.get("/haberler", async (req, res) => {
     const out = [];
 
     for (const n of items.slice(0, 15)) {
-      // Zaten Türkçeyse dokunma
       if (/[ğüşöçıİĞÜŞÖÇ]/i.test(n.title)) {
         out.push(n);
         continue;
       }
 
-      // TITLE ÇEVİR
-      const titleUrl =
+      const tUrl =
         "https://translate.googleapis.com/translate_a/single" +
         "?client=gtx&sl=en&tl=tr&dt=t&q=" +
         encodeURIComponent(n.title);
 
-      const trTitleRes = await fetch(titleUrl);
-      const trTitleJson = await trTitleRes.json();
-      const trTitle = trTitleJson[0].map((x) => x[0]).join("");
+      const tRes = await fetch(tUrl);
+      const tJson = await tRes.json();
+      const trTitle = tJson[0].map((x) => x[0]).join("");
 
-      // CONTENT ÇEVİR
       let trContent = n.content;
       if (n.content) {
-        const contentUrl =
+        const cUrl =
           "https://translate.googleapis.com/translate_a/single" +
           "?client=gtx&sl=en&tl=tr&dt=t&q=" +
           encodeURIComponent(n.content);
 
-        const trContentRes = await fetch(contentUrl);
-        const trContentJson = await trContentRes.json();
-        trContent = trContentJson[0].map((x) => x[0]).join("");
+        const cRes = await fetch(cUrl);
+        const cJson = await cRes.json();
+        trContent = cJson[0].map((x) => x[0]).join("");
       }
 
-      out.push({
-        ...n,
-        title: trTitle,
-        content: trContent,
-      });
+      out.push({ ...n, title: trTitle, content: trContent });
     }
 
     res.json(out);
