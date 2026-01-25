@@ -159,25 +159,23 @@ app.post("/finans-uzmani", (req, res) => {
 });
 
 // =======================================================
-// 🔴 SADECE EKLENEN YER — /translate
+// 🔴 /translate — GOOGLE TRANSLATE (KEYSİZ)
 // =======================================================
 app.post("/translate", async (req, res) => {
   try {
     const text = req.body.text || "";
+    if (!text) return res.json({ translated: "" });
 
-    const r = await fetch("https://libretranslate.de/translate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        q: text,
-        source: "auto",
-        target: "tr",
-        format: "text",
-      }),
-    });
+    const url =
+      "https://translate.googleapis.com/translate_a/single" +
+      "?client=gtx&sl=auto&tl=tr&dt=t&q=" +
+      encodeURIComponent(text);
 
+    const r = await fetch(url);
     const j = await r.json();
-    res.json({ translated: j.translatedText });
+
+    const translated = j[0].map((x) => x[0]).join("");
+    res.json({ translated });
   } catch (e) {
     res.json({ translated: req.body.text });
   }
