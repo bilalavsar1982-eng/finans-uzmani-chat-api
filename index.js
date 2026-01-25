@@ -186,6 +186,8 @@ app.post("/translate", async (req, res) => {
 // =======================================================
 app.get("/haberler", async (req, res) => {
   console.log("🔥 /haberler ÇAĞRILDI");
+  ...
+});
 
 app.get("/haberler", async (req, res) => {
   try {
