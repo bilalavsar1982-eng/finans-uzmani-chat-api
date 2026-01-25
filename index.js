@@ -185,6 +185,9 @@ app.post("/translate", async (req, res) => {
 // 🔴 /haberler — mining.com/rss (TÜRKÇE)
 // =======================================================
 app.get("/haberler", async (req, res) => {
+  console.log("🔥 /haberler ÇAĞRILDI");
+
+app.get("/haberler", async (req, res) => {
   try {
     const rssUrl = "https://www.mining.com/rss";
     const rssRes = await fetch(rssUrl);
