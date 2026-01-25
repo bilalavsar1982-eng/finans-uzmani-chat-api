@@ -159,7 +159,7 @@ app.post("/finans-uzmani", (req, res) => {
 });
 
 // =======================================================
-// 🔴 SADECE EKLENEN YER — /translate (BAŞKA YOK)
+// 🔴 SADECE EKLENEN YER — /translate
 // =======================================================
 app.post("/translate", async (req, res) => {
   try {
