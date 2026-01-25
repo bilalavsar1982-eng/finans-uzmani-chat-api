@@ -146,7 +146,7 @@ function buildReply(body) {
 }
 
 // =============================
-// ROUTE
+// ROUTE — MEVCUT
 // =============================
 app.post("/finans-uzmani", (req, res) => {
   try {
@@ -158,6 +158,32 @@ app.post("/finans-uzmani", (req, res) => {
   }
 });
 
+// =======================================================
+// 🔴 SADECE EKLENEN YER — /translate (BAŞKA YOK)
+// =======================================================
+app.post("/translate", async (req, res) => {
+  try {
+    const text = req.body.text || "";
+
+    const r = await fetch("https://libretranslate.de/translate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        q: text,
+        source: "en",
+        target: "tr",
+        format: "text",
+      }),
+    });
+
+    const j = await r.json();
+    res.json({ translated: j.translatedText });
+  } catch (e) {
+    res.json({ translated: req.body.text });
+  }
+});
+
+// =============================
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("Server çalışıyor, port:", PORT);
