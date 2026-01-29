@@ -333,7 +333,7 @@ async function buildReply(body) {
 }
 
 // =============================
-app.post("/finans-uzmani", (req, res) => {
+app.post("/finans-uzmani", async (req, res) => {
   res.json({ reply: await buildReply(req.body) });
 });
 
