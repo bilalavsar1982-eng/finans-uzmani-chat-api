@@ -30,7 +30,11 @@ cron.schedule(
 // =============================
 const sessions = {};
 const getSession = (id) =>
-  (sessions[id] ||= { horizon: null, askedHorizon: false });
+  (sessions[id] ||= {
+    horizon: null,
+    askedHorizon: false,
+    proNotified: false
+  });
 
 // =============================
 // UTIL
@@ -249,14 +253,18 @@ const SIGNAL_TONE = {
 // CEVAP
 // =============================
 function buildReply(body) {
+  const msg = (body.message || "").toLowerCase();
   const professionalMode = body.professionalMode === true;
+  const mem = getSession(body.sessionId || "x");
 
-  if (professionalMode) {
-    return "⚠️ Profesyonel mod aktif.\nBu modda otomatik analiz yapılmaz.\nLütfen net ve spesifik bir analiz isteği giriniz. Günde 1 defa soru sorma hakkınız var.";
+  if (professionalMode && !mem.proNotified) {
+    mem.proNotified = true;
+    return "⚠️ Profesyonel mod aktif.\nBu modda otomatik analiz yapılmaz.\nSorunuzu yazabilirsiniz.";
   }
 
-  const msg = (body.message || "").toLowerCase();
-  const mem = getSession(body.sessionId || "x");
+  if (professionalMode) {
+    return body.manualReply || "Profesyonel analiz hazırlanıyor.";
+  }
 
   if (msg.includes("kısa")) mem.horizon = "SHORT";
   if (msg.includes("uzun")) mem.horizon = "LONG";
