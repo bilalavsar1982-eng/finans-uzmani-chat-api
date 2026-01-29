@@ -250,24 +250,35 @@ const SIGNAL_TONE = {
 };
 
 // =============================
-// CEVAP
+// CEVAP  🔴 SADECE BURASI DÜZELTİLDİ
 // =============================
 function buildReply(body) {
   const msg = (body.message || "").toLowerCase();
   const professionalMode = body.professionalMode === true;
   const mem = getSession(body.sessionId || "x");
 
-  // 🔥 PROFESYONEL MOD = DİREKT FİNANS UZMANI CEVABI
+  // 🔥 PROFESYONEL MOD
   if (professionalMode) {
-    mem.horizon = msg.includes("kısa") ? "SHORT" : "LONG";
-  } else {
-    if (msg.includes("kısa")) mem.horizon = "SHORT";
-    if (msg.includes("uzun")) mem.horizon = "LONG";
-
-    if (!mem.horizon && !mem.askedHorizon) {
-      mem.askedHorizon = true;
-      return "Kısa vadeli mi bakalım, uzun vadeden mi konuşalım?";
+    // 1️⃣ İlk açılış bildirimi (SADECE 1 KERE)
+    if (!mem.proNotified) {
+      mem.proNotified = true;
+      return "⚠️ Profesyonel mod aktif.\nSorularınız uzman düzeyinde yanıtlanacaktır. Günde 1 defa soru sorma hakkınız bulunmaktadır.";
+}.";
     }
+
+    // 2️⃣ Sonraki tüm sorular = ChatGPT cevabı
+    return body.manualReply || body.reply || "Cevap alınamadı.";
+  }
+
+  // =============================
+  // NORMAL MOD (HİÇ DOKUNULMADI)
+  // =============================
+  if (msg.includes("kısa")) mem.horizon = "SHORT";
+  if (msg.includes("uzun")) mem.horizon = "LONG";
+
+  if (!mem.horizon && !mem.askedHorizon) {
+    mem.askedHorizon = true;
+    return "Kısa vadeli mi bakalım, uzun vadeden mi konuşalım?";
   }
 
   const inst = detectInstrument(msg);
