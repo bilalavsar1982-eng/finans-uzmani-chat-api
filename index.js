@@ -252,7 +252,7 @@ const SIGNAL_TONE = {
 // =============================
 // CEVAP  🔴 SADECE BURASI DÜZELTİLDİ
 // =============================
-function buildReply(body) {
+async function buildReply(body) {
   const msg = (body.message || "").toLowerCase();
   const professionalMode = body.professionalMode === true;
   const mem = getSession(body.sessionId || "x");
@@ -267,8 +267,35 @@ function buildReply(body) {
     }
 
     // 2️⃣ Sonraki tüm sorular = ChatGPT cevabı
-    return body.manualReply || body.reply || "Cevap alınamadı.";
-  }
+   try {
+  const r = await fetch("https://api.openai.com/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
+    },
+    body: JSON.stringify({
+      model: "gpt-4o-mini",
+      messages: [
+        {
+          role: "system",
+          content: "Sen tecrübeli, temkinli ve net konuşan bir finans uzmanısın."
+        },
+        {
+          role: "user",
+          content: body.message
+        }
+      ],
+      temperature: 0.7
+    })
+  });
+
+  const j = await r.json();
+  return j.choices?.[0]?.message?.content || "Cevap üretilemedi.";
+} catch (e) {
+  console.error(e);
+  return "⚠️ Profesyonel cevap üretilemedi.";
+}
 
   // =============================
   // NORMAL MOD (HİÇ DOKUNULMADI)
@@ -307,7 +334,7 @@ function buildReply(body) {
 
 // =============================
 app.post("/finans-uzmani", (req, res) => {
-  res.json({ reply: buildReply(req.body) });
+  res.json({ reply: await buildReply(req.body) });
 });
 
 // =============================
