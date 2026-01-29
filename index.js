@@ -297,6 +297,8 @@ async function buildReply(body) {
   return "⚠️ Profesyonel cevap üretilemedi.";
 }
 
+} // 🔴 BU SATIR EKSİKTİ (if professionalMode kapanışı)
+
   // =============================
   // NORMAL MOD (HİÇ DOKUNULMADI)
   // =============================
