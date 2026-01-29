@@ -30,7 +30,12 @@ cron.schedule(
 // =============================
 const sessions = {};
 const getSession = (id) =>
-  (sessions[id] ||= { horizon: null, askedHorizon: false });
+  (sessions[id] ||= {
+    horizon: null,
+    askedHorizon: false,
+    professionalUsedToday: false,
+    professionalDate: null
+  });
 
 // =============================
 // UTIL
@@ -91,172 +96,35 @@ function decide(weekly, monthly, macro) {
 }
 
 // =============================
-// ÜRÜN KELİMELERİ (GENİŞLETİLDİ)
-// =============================
-const WORDS = {
-  USD: [
-    "Dolar tarafı sakin ama tetikte.",
-    "Kur cephesinde kontrollü bir gidiş var.",
-    "Dolar yön arayışında.",
-    "Kur tarafında baskı sınırlı.",
-    "Dolar ani hareket için zemin kolluyor.",
-    "Kurda panik yok ama rahat da değil.",
-    "Dolar tarafı sabır isteyen bir yerde.",
-    "Dolar cephesinde temkinli hava sürüyor.",
-    "Kurda yukarı aşağı küçük yoklamalar var.",
-    "Dolar tarafı habere duyarlı ilerliyor.",
-    "Kurda ani kopuş için güçlü sinyal yok.",
-    "Dolar yatırımcısı frene basmış durumda.",
-    "Kurda acele eden genelde üzülür.",
-    "Dolar tarafında sabırlı olmak gerekiyor."
-  ],
-  EUR: [
-    "Euro tarafı dalgalı seyrediyor.",
-    "Euro net bir yön ortaya koyamadı.",
-    "Parite baskısı euroyu sınırlıyor.",
-    "Euro cephesinde kararsızlık var.",
-    "Euro ani kopuş için henüz zayıf.",
-    "Euro tarafı dolar karşısında zorlanıyor.",
-    "Euro yatırımcısı için ortam net değil.",
-    "Euro tarafında iniş çıkışlar normal.",
-    "Euro şu ara güven vermekte zorlanıyor."
-  ],
-  ALTIN: [
-    "Altın güvenli liman refleksi veriyor.",
-    "Altın haber akışına oldukça duyarlı.",
-    "Altın yatırımcısı aceleci olmamalı.",
-    "Altın uzun soluklu düşüneni sever.",
-    "Altında geri çekilmeler moral bozmamalı.",
-    "Altın tarafında panik yapan kaybeder.",
-    "Altın uzun vadede kendini toplar.",
-    "Altın her zaman sabrı ödüllendirmez ama çoğu zaman eder."
-  ],
-  GRAM: [
-    "Gram altın ons ve kur arasında sıkışmış durumda.",
-    "Gram tarafı yön bulmakta zorlanıyor.",
-    "Gramda geri çekilmeler normal.",
-    "Gram altın biraz nazlı ilerliyor.",
-    "Gram tarafı sabır testi yapıyor.",
-    "Gramda kısa vadeli heyecan riskli.",
-    "Gram uzun vadede yüz güldürür."
-  ],
-  ONS: [
-    "Ons altın küresel haberlerle yön buluyor.",
-    "Ons tarafı sürprize açık.",
-    "Ons altında yön bir günde değişebilir.",
-    "Ons tarafında teknik seviyeler önemli.",
-    "Ons yatırımcısı haberi iyi okumalı."
-  ],
-  GUMUS: [
-    "Gümüş sert hareket etmeyi sever.",
-    "Gümüş altına göre daha oynak.",
-    "Gümüş sabırsızı zorlar.",
-    "Gümüşte ani sıçramalar şaşırtmaz.",
-    "Gümüşte risk yüksek ama getiri de öyle.",
-    "Gümüş yatırımcısı midesine güvenmeli."
-  ],
-  GENERIC: [
-    "Piyasada net bir yön yok.",
-    "Genel tablo kararsız.",
-    "Yön için erken.",
-    "Piyasa biraz kafa karışık.",
-    "Bekle-gör havası hakim.",
-    "Herkes temkinli ilerliyor."
-  ]
-};
-
-// =============================
-// VADE KELİMELERİ (GENİŞLETİLDİ)
-// =============================
-const SHORT_WORDS = [
-  "Kısa vadede sert dalgalar mümkün.",
-  "Günlük hareketler yanıltıcı olabilir.",
-  "Kısa vadede stop önemli.",
-  "Kısa vadede panik zarar yazar.",
-  "Günlük işlemler dikkat ister.",
-  "Kısa vade hata affetmez.",
-  "Bugün alınan karar yarın pişman edebilir."
-];
-
-const LONG_WORDS = [
-  "Uzun vadede ana trend daha belirleyici.",
-  "Uzun vadede sabır kazandırır.",
-  "Büyük resim kısa dalgalardan önemli.",
-  "Uzun vadede gürültüye kulak asmamak lazım.",
-  "Zaman genelde sabırlının lehine işler.",
-  "Uzun vadede stres daha azdır.",
-  "Uzun soluklu bakan genelde kazanır."
-];
-
-// =============================
-// SİNYAL + GÜVEN DİLİ (GENİŞLETİLDİ)
-// =============================
-const SIGNAL_TONE = {
-  STRONG: {
-    AL: [
-      "Bu seviyeler net şekilde alımı destekliyor.",
-      "Risk iştahı olanlar için güçlü bir alım alanı.",
-      "Buradan alım tarafı daha baskın duruyor.",
-      "Bu bölgeler uzun süre görülmeyebilir."
-    ],
-    SAT: [
-      "Bu seviyeler net biçimde satış bölgesi.",
-      "Buradan devam etmek riskli, satış öne çıkıyor.",
-      "Kârı cebe koymak akıllıca olabilir.",
-      "Daha yukarı için şartlar zayıf."
-    ],
-    BEKLE: [
-      "Piyasa kararsız ama güçlü sinyal yok, beklemek en doğrusu.",
-      "Aceleden uzak durmak en sağlıklısı."
-    ]
-  },
-  NORMAL: {
-    AL: [
-      "Alım tarafı şu an daha mantıklı.",
-      "Kademeli alım düşünenler için uygun.",
-      "Alım tarafı biraz daha ağır basıyor."
-    ],
-    SAT: [
-      "Satış tarafı biraz daha ağır basıyor.",
-      "Yukarı hareketler satış fırsatı olabilir.",
-      "Risk azaltmak isteyenler için satış mantıklı."
-    ],
-    BEKLE: [
-      "Biraz daha izlemek daha sağlıklı.",
-      "Netleşme için zaman lazım."
-    ]
-  },
-  SOFT: {
-    AL: [
-      "Alım düşünenler temkinli ilerlemeli.",
-      "Acele etmeden alım planlanabilir.",
-      "Ufak ufak alım denenebilir."
-    ],
-    SAT: [
-      "Risk almamak adına satış düşünülebilir.",
-      "Kârı korumak mantıklı olabilir.",
-      "Bir miktar azaltmak huzur verebilir."
-    ],
-    BEKLE: [
-      "Şartlar netleşmeden hamle yapmak erken.",
-      "Bir süre kenarda durmak zarar vermez."
-    ]
-  }
-};
-
-// =============================
 // CEVAP
 // =============================
 function buildReply(body) {
   const msg = (body.message || "").toLowerCase();
   const mem = getSession(body.sessionId || "x");
+  const today = new Date().toISOString().slice(0, 10);
+  const professionalMode = body.professionalMode === true;
 
-  if (msg.includes("kısa")) mem.horizon = "SHORT";
-  if (msg.includes("uzun")) mem.horizon = "LONG";
+  if (professionalMode) {
+    if (mem.professionalDate !== today) {
+      mem.professionalDate = today;
+      mem.professionalUsedToday = false;
+    }
 
-  if (!mem.horizon && !mem.askedHorizon) {
-    mem.askedHorizon = true;
-    return "Kısa vadeli mi bakalım, uzun vadeden mi konuşalım?";
+    if (mem.professionalUsedToday) {
+      return "Profesyonel Mod için günlük soru hakkın doldu. Yarın tekrar deneyebilirsin.";
+    }
+
+    mem.professionalUsedToday = true;
+  }
+
+  if (!professionalMode) {
+    if (msg.includes("kısa")) mem.horizon = "SHORT";
+    if (msg.includes("uzun")) mem.horizon = "LONG";
+
+    if (!mem.horizon && !mem.askedHorizon) {
+      mem.askedHorizon = true;
+      return "Kısa vadeli mi bakalım, uzun vadeden mi konuşalım?";
+    }
   }
 
   const inst = detectInstrument(msg);
@@ -275,13 +143,7 @@ function buildReply(body) {
   const used = new Set();
   let r = "🧠 Genel tablo:\n";
   r += "• " + pick(WORDS[inst] || WORDS.GENERIC, used) + "\n";
-  r += "• " + pick(WORDS[inst] || WORDS.GENERIC, used) + "\n";
-
-  if (mem.horizon === "SHORT")
-    r += "• " + pick(SHORT_WORDS, used) + "\n\n";
-
-  if (mem.horizon === "LONG")
-    r += "• " + pick(LONG_WORDS, used) + "\n\n";
+  r += "• " + pick(WORDS[inst] || WORDS.GENERIC, used) + "\n\n";
 
   r += "📌 Değerlendirme:\n";
   r += "• " + pick(SIGNAL_TONE[tone][signal], used) + "\n\n";
@@ -293,100 +155,6 @@ function buildReply(body) {
 // =============================
 app.post("/finans-uzmani", (req, res) => {
   res.json({ reply: buildReply(req.body) });
-});
-
-// =============================
-// /translate — GOOGLE (KEYSİZ)
-// =============================
-app.post("/translate", async (req, res) => {
-  try {
-    const text = req.body.text || "";
-    if (!text) return res.json({ translated: "" });
-
-    const url =
-      "https://translate.googleapis.com/translate_a/single" +
-      "?client=gtx&sl=auto&tl=tr&dt=t&q=" +
-      encodeURIComponent(text);
-
-    const r = await fetch(url);
-    const j = await r.json();
-    const translated = j[0].map((x) => x[0]).join("");
-    res.json({ translated });
-  } catch {
-    res.json({ translated: req.body.text });
-  }
-});
-
-// =============================
-// /haberler — RSS + TÜRKÇE
-// =============================
-app.get("/haberler", async (req, res) => {
-  try {
-    const rssUrl = "https://www.mining.com/rss";
-    const rssRes = await fetch(rssUrl);
-    const xml = await rssRes.text();
-
-    const items = [];
-    const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-    let match;
-
-    while ((match = itemRegex.exec(xml)) !== null) {
-      const block = match[1];
-      const title =
-        block.match(/<title>([\s\S]*?)<\/title>/)?.[1]?.trim() || "";
-      const desc =
-        block.match(/<description><!\[CDATA\[([\s\S]*?)\]\]><\/description>/)?.[1] || "";
-      const link =
-        block.match(/<link>([\s\S]*?)<\/link>/)?.[1]?.trim() || "";
-
-      if (!title) continue;
-
-      items.push({
-        title,
-        content: desc,
-        link,
-        date: new Date().toISOString(),
-        isTurkey: false,
-        importance: "LOW",
-      });
-    }
-
-    const out = [];
-
-    for (const n of items.slice(0, 15)) {
-      if (/[ğüşöçıİĞÜŞÖÇ]/i.test(n.title)) {
-        out.push(n);
-        continue;
-      }
-
-      const tUrl =
-        "https://translate.googleapis.com/translate_a/single" +
-        "?client=gtx&sl=en&tl=tr&dt=t&q=" +
-        encodeURIComponent(n.title);
-
-      const tRes = await fetch(tUrl);
-      const tJson = await tRes.json();
-      const trTitle = tJson[0].map((x) => x[0]).join("");
-
-      let trContent = n.content;
-      if (n.content) {
-        const cUrl =
-          "https://translate.googleapis.com/translate_a/single" +
-          "?client=gtx&sl=en&tl=tr&dt=t&q=" +
-          encodeURIComponent(n.content);
-        const cRes = await fetch(cUrl);
-        const cJson = await cRes.json();
-        trContent = cJson[0].map((x) => x[0]).join("");
-      }
-
-      out.push({ ...n, title: trTitle, content: trContent });
-    }
-
-    res.json(out);
-  } catch (e) {
-    console.error("HABERLER HATA:", e);
-    res.json([]);
-  }
 });
 
 const PORT = process.env.PORT || 3000;
