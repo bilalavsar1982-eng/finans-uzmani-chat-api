@@ -96,7 +96,7 @@ function decide(weekly, monthly, macro) {
 }
 
 // =============================
-// ÜRÜN KELİMELERİ (TAMAMI GERİ)
+// ÜRÜN KELİMELERİ
 // =============================
 const WORDS = {
   USD: [
@@ -257,21 +257,17 @@ function buildReply(body) {
   const professionalMode = body.professionalMode === true;
   const mem = getSession(body.sessionId || "x");
 
-  if (professionalMode && !mem.proNotified) {
-    mem.proNotified = true;
-    return "⚠️ Profesyonel mod aktif.\nBu modda otomatik analiz yapılmaz.\nSorunuzu yazabilirsiniz.";
-  }
-
+  // 🔥 PROFESYONEL MOD = DİREKT FİNANS UZMANI CEVABI
   if (professionalMode) {
-    return body.manualReply || "Profesyonel analiz hazırlanıyor.";
-  }
+    mem.horizon = msg.includes("kısa") ? "SHORT" : "LONG";
+  } else {
+    if (msg.includes("kısa")) mem.horizon = "SHORT";
+    if (msg.includes("uzun")) mem.horizon = "LONG";
 
-  if (msg.includes("kısa")) mem.horizon = "SHORT";
-  if (msg.includes("uzun")) mem.horizon = "LONG";
-
-  if (!mem.horizon && !mem.askedHorizon) {
-    mem.askedHorizon = true;
-    return "Kısa vadeli mi bakalım, uzun vadeden mi konuşalım?";
+    if (!mem.horizon && !mem.askedHorizon) {
+      mem.askedHorizon = true;
+      return "Kısa vadeli mi bakalım, uzun vadeden mi konuşalım?";
+    }
   }
 
   const inst = detectInstrument(msg);
