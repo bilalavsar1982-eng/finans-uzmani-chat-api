@@ -263,7 +263,7 @@ function buildReply(body) {
     if (!mem.proNotified) {
       mem.proNotified = true;
       return "⚠️ Profesyonel mod aktif.\nSorularınız uzman düzeyinde yanıtlanacaktır. Günde 1 defa soru sorma hakkınız bulunmaktadır.";
-}";
+}
     }
 
     // 2️⃣ Sonraki tüm sorular = ChatGPT cevabı
