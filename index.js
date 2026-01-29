@@ -333,8 +333,9 @@ async function buildReply(body) {
 }
 
 // =============================
-app.post("/finans-uzmani", (req, res) => {
-  res.json({ reply: buildReply(req.body) });
+app.post("/finans-uzmani", async (req, res) => {
+  const reply = await buildReply(req.body);
+  res.json({ reply });
 });
 
 // =============================
