@@ -249,20 +249,21 @@ const SIGNAL_TONE = {
 // CEVAP
 // =============================
 function buildReply(body) {
-  const msg = (body.message || "").toLowerCase();
   const professionalMode = body.professionalMode === true;
+
+  if (professionalMode) {
+    return "⚠️ Profesyonel mod aktif.\nBu modda otomatik analiz yapılmaz.\nLütfen net ve spesifik bir analiz isteği giriniz. Günde 1 defa soru sorma hakkınız var.";
+  }
+
+  const msg = (body.message || "").toLowerCase();
   const mem = getSession(body.sessionId || "x");
 
-  if (!professionalMode) {
-    if (msg.includes("kısa")) mem.horizon = "SHORT";
-    if (msg.includes("uzun")) mem.horizon = "LONG";
+  if (msg.includes("kısa")) mem.horizon = "SHORT";
+  if (msg.includes("uzun")) mem.horizon = "LONG";
 
-    if (!mem.horizon && !mem.askedHorizon) {
-      mem.askedHorizon = true;
-      return "Kısa vadeli mi bakalım, uzun vadeden mi konuşalım?";
-    }
-  } else {
-    mem.horizon = "LONG";
+  if (!mem.horizon && !mem.askedHorizon) {
+    mem.askedHorizon = true;
+    return "Kısa vadeli mi bakalım, uzun vadeden mi konuşalım?";
   }
 
   const inst = detectInstrument(msg);
