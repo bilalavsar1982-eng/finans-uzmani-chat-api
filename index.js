@@ -265,7 +265,7 @@ async function buildReply(body) {
           "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
         },
         body: JSON.stringify({
-          model: "gpt-4o-mini",
+          model: "gpt-3.5-turbo",
           messages: [
             {
               role: "system",
