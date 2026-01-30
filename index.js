@@ -1,8 +1,6 @@
 const express = require("express");
 const cors = require("cors");
 const cron = require("node-cron");
-const fetch = (...args) =>
-  import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 process.on("uncaughtException", console.error);
 process.on("unhandledRejection", console.error);
