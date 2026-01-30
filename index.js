@@ -258,30 +258,26 @@ async function buildReply(body) {
   // 🔥 PROFESYONEL MOD – SADECE GPT CEVABI
   if (professionalMode) {
     try {
-      const r = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
-        },
-        body: JSON.stringify({
-          model: "gpt-3.5-turbo",
-          messages: [
-            {
-              role: "system",
-              content: "Sen tecrübeli, temkinli ve net konuşan bir finans uzmanısın."
-            },
-            {
-              role: "user",
-              content: body.message
-            }
-          ],
-          temperature: 0.7
-        })
-      });
+      const r = await axios.post(
+  "https://api.openai.com/v1/chat/completions",
+  {
+    model: "gpt-3.5-turbo",
+    messages: [
+      { role: "system", content: "Sen tecrübeli, temkinli ve net konuşan bir finans uzmanısın." },
+      { role: "user", content: body.message }
+    ],
+    temperature: 0.7
+  },
+  {
+    headers: {
+      "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+      "Content-Type": "application/json"
+    }
+  }
+);
 
-      const j = await r.json();
-      return j.choices?.[0]?.message?.content || "Cevap üretilemedi.";
+return r.data.choices?.[0]?.message?.content || "Cevap üretilemedi.";
+
     } catch (e) {
       console.error(e);
       return "⚠️ Profesyonel cevap üretilemedi.";
