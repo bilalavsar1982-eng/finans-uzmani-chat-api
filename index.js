@@ -250,57 +250,48 @@ const SIGNAL_TONE = {
 };
 
 // =============================
-// CEVAP  🔴 SADECE BURASI DÜZELTİLDİ
+// CEVAP
 // =============================
 async function buildReply(body) {
   const msg = (body.message || "").toLowerCase();
   const professionalMode = body.professionalMode === true;
   const mem = getSession(body.sessionId || "x");
 
-  // 🔥 PROFESYONEL MOD
+  // 🔥 PROFESYONEL MOD – SADECE GPT CEVABI
   if (professionalMode) {
-
-    // 1️⃣ İlk açılış bildirimi (SADECE 1 KERE)
-    if (!mem.proNotified) {
-      mem.proNotified = true;
-      return "⚠️ Profesyonel mod aktif.\nSorularınız uzman düzeyinde yanıtlanacaktır. Günde 1 defa soru sorma hakkınız bulunmaktadır.";
-    }
-
-    // 2️⃣ Sonraki tüm sorular = ChatGPT cevabı
-   try {
-  const r = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
-    },
-    body: JSON.stringify({
-      model: "gpt-4o-mini",
-      messages: [
-        {
-          role: "system",
-          content: "Sen tecrübeli, temkinli ve net konuşan bir finans uzmanısın."
+    try {
+      const r = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
         },
-        {
-          role: "user",
-          content: body.message
-        }
-      ],
-      temperature: 0.7
-    })
-  });
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "Sen tecrübeli, temkinli ve net konuşan bir finans uzmanısın."
+            },
+            {
+              role: "user",
+              content: body.message
+            }
+          ],
+          temperature: 0.7
+        })
+      });
 
-  const j = await r.json();
-  return j.choices?.[0]?.message?.content || "Cevap üretilemedi.";
-} catch (e) {
-  console.error(e);
-  return "⚠️ Profesyonel cevap üretilemedi.";
-}
-
-} // 🔴 BU SATIR EKSİKTİ (if professionalMode kapanışı)
+      const j = await r.json();
+      return j.choices?.[0]?.message?.content || "Cevap üretilemedi.";
+    } catch (e) {
+      console.error(e);
+      return "⚠️ Profesyonel cevap üretilemedi.";
+    }
+  }
 
   // =============================
-  // NORMAL MOD (HİÇ DOKUNULMADI)
+  // NORMAL MOD
   // =============================
   if (msg.includes("kısa")) mem.horizon = "SHORT";
   if (msg.includes("uzun")) mem.horizon = "LONG";
