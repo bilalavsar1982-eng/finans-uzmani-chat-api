@@ -261,12 +261,7 @@ async function buildReply(body) {
   const weekly = body.weeklyPct || 0;
   const monthly = body.monthlyPct || 0;
 
-  // 🔥 PROFESYONEL MOD veya NORMAL MOD – SNAP VERİSİ HER ZAMAN GÖNDER
-  let signal = decide(weekly, monthly, macro);
-  let conf = clamp(55 + macro * 10, 55, 85);
-  let tone = conf >= 75 ? "STRONG" : conf >= 60 ? "NORMAL" : "SOFT";
-
-  // Eğer profesyonel mod ise GPT çağrısı
+  // 🔥 PROFESYONEL MOD
   if (professionalMode) {
     try {
       const r = await axios.post(
@@ -294,7 +289,7 @@ async function buildReply(body) {
   }
 
   // =============================
-  // NORMAL MOD – Kendi algoritmamız
+  // NORMAL MOD
   // =============================
   if (msg.includes("kısa")) mem.horizon = "SHORT";
   if (msg.includes("uzun")) mem.horizon = "LONG";
@@ -303,6 +298,10 @@ async function buildReply(body) {
     mem.askedHorizon = true;
     return "Kısa vadeli mi bakalım, uzun vadeden mi konuşalım?";
   }
+
+  const signal = decide(weekly, monthly, macro);
+  const conf = clamp(55 + macro * 10, 55, 85);
+  const tone = conf >= 75 ? "STRONG" : conf >= 60 ? "NORMAL" : "SOFT";
 
   const used = new Set();
   let r = "🧠 Genel tablo:\n";
@@ -318,7 +317,6 @@ async function buildReply(body) {
 
   return r;
 }
-
   // =============================
   // NORMAL MOD
   // =============================
