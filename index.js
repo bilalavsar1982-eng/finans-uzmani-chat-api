@@ -220,7 +220,7 @@ async function buildReply(body) {
       const r = await axios.post(
         "https://api.openai.com/v1/chat/completions",
         {
-          model: "gpt-3.5-turbo",
+          model: "gpt-4o-mini",
           messages: [
             { role: "system", content: "Sen tecrübeli, temkinli ve net konuşan bir finans uzmanısın." },
             { role: "user", content: body.message }
