@@ -256,34 +256,68 @@ async function buildReply(body) {
   const professionalMode = body.professionalMode === true;
   const mem = getSession(body.sessionId || "x");
 
-  // 🔥 PROFESYONEL MOD – SADECE GPT CEVABI
+  const inst = detectInstrument(msg);
+  const macro = macroScore(msg);
+  const weekly = body.weeklyPct || 0;
+  const monthly = body.monthlyPct || 0;
+
+  // 🔥 PROFESYONEL MOD veya NORMAL MOD – SNAP VERİSİ HER ZAMAN GÖNDER
+  let signal = decide(weekly, monthly, macro);
+  let conf = clamp(55 + macro * 10, 55, 85);
+  let tone = conf >= 75 ? "STRONG" : conf >= 60 ? "NORMAL" : "SOFT";
+
+  // Eğer profesyonel mod ise GPT çağrısı
   if (professionalMode) {
     try {
       const r = await axios.post(
-  "https://api.openai.com/v1/chat/completions",
-  {
-    model: "gpt-3.5-turbo",
-    messages: [
-      { role: "system", content: "Sen tecrübeli, temkinli ve net konuşan bir finans uzmanısın." },
-      { role: "user", content: body.message }
-    ],
-    temperature: 0.7
-  },
-  {
-    headers: {
-      "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-      "Content-Type": "application/json"
-    }
-  }
-);
-
-return r.data.choices?.[0]?.message?.content || "Cevap üretilemedi.";
-
+        "https://api.openai.com/v1/chat/completions",
+        {
+          model: "gpt-3.5-turbo",
+          messages: [
+            { role: "system", content: "Sen tecrübeli, temkinli ve net konuşan bir finans uzmanısın." },
+            { role: "user", content: body.message }
+          ],
+          temperature: 0.7
+        },
+        {
+          headers: {
+            "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+            "Content-Type": "application/json"
+          }
+        }
+      );
+      return r.data.choices?.[0]?.message?.content || "Cevap üretilemedi.";
     } catch (e) {
       console.error(e);
       return "⚠️ Profesyonel cevap üretilemedi.";
     }
   }
+
+  // =============================
+  // NORMAL MOD – Kendi algoritmamız
+  // =============================
+  if (msg.includes("kısa")) mem.horizon = "SHORT";
+  if (msg.includes("uzun")) mem.horizon = "LONG";
+
+  if (!mem.horizon && !mem.askedHorizon) {
+    mem.askedHorizon = true;
+    return "Kısa vadeli mi bakalım, uzun vadeden mi konuşalım?";
+  }
+
+  const used = new Set();
+  let r = "🧠 Genel tablo:\n";
+  r += "• " + pick(WORDS[inst] || WORDS.GENERIC, used) + "\n";
+  r += "• " + pick(WORDS[inst] || WORDS.GENERIC, used) + "\n";
+
+  if (mem.horizon === "SHORT") r += "• " + pick(SHORT_WORDS, used) + "\n\n";
+  if (mem.horizon === "LONG") r += "• " + pick(LONG_WORDS, used) + "\n\n";
+
+  r += "📌 Değerlendirme:\n";
+  r += "• " + pick(SIGNAL_TONE[tone][signal], used) + "\n\n";
+  r += `Sonuç: ${signal} (Güven: %${conf})`;
+
+  return r;
+}
 
   // =============================
   // NORMAL MOD
