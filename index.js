@@ -196,56 +196,9 @@ const LONG_WORDS = [
 // SİNYAL
 // =============================
 const SIGNAL_TONE = {
-  STRONG: {
-    AL: [
-      "Bu seviyeler net şekilde alımı destekliyor.",
-      "Risk iştahı olanlar için güçlü bir alım alanı.",
-      "Buradan alım tarafı daha baskın duruyor.",
-      "Bu bölgeler uzun süre görülmeyebilir."
-    ],
-    SAT: [
-      "Bu seviyeler net biçimde satış bölgesi.",
-      "Buradan devam etmek riskli, satış öne çıkıyor.",
-      "Kârı cebe koymak akıllıca olabilir.",
-      "Daha yukarı için şartlar zayıf."
-    ],
-    BEKLE: [
-      "Piyasa kararsız ama güçlü sinyal yok, beklemek en doğrusu.",
-      "Aceleden uzak durmak en sağlıklısı."
-    ]
-  },
-  NORMAL: {
-    AL: [
-      "Alım tarafı şu an daha mantıklı.",
-      "Kademeli alım düşünenler için uygun.",
-      "Alım tarafı biraz daha ağır basıyor."
-    ],
-    SAT: [
-      "Satış tarafı biraz daha ağır basıyor.",
-      "Yukarı hareketler satış fırsatı olabilir.",
-      "Risk azaltmak isteyenler için satış mantıklı."
-    ],
-    BEKLE: [
-      "Biraz daha izlemek daha sağlıklı.",
-      "Netleşme için zaman lazım."
-    ]
-  },
-  SOFT: {
-    AL: [
-      "Alım düşünenler temkinli ilerlemeli.",
-      "Acele etmeden alım planlanabilir.",
-      "Ufak ufak alım denenebilir."
-    ],
-    SAT: [
-      "Risk almamak adına satış düşünülebilir.",
-      "Kârı korumak mantıklı olabilir.",
-      "Bir miktar azaltmak huzur verebilir."
-    ],
-    BEKLE: [
-      "Şartlar netleşmeden hamle yapmak erken.",
-      "Bir süre kenarda durmak zarar vermez."
-    ]
-  }
+  STRONG: { AL: [], SAT: [], BEKLE: [] },
+  NORMAL: { AL: [], SAT: [], BEKLE: [] },
+  SOFT: { AL: [], SAT: [], BEKLE: [] }
 };
 
 // =============================
@@ -261,7 +214,7 @@ async function buildReply(body) {
   const weekly = body.weeklyPct || 0;
   const monthly = body.monthlyPct || 0;
 
-  // 🔥 PROFESYONEL MOD
+  // PROFESYONEL MOD
   if (professionalMode) {
     try {
       const r = await axios.post(
@@ -288,9 +241,7 @@ async function buildReply(body) {
     }
   }
 
-  // =============================
   // NORMAL MOD
-  // =============================
   if (msg.includes("kısa")) mem.horizon = "SHORT";
   if (msg.includes("uzun")) mem.horizon = "LONG";
 
@@ -298,40 +249,6 @@ async function buildReply(body) {
     mem.askedHorizon = true;
     return "Kısa vadeli mi bakalım, uzun vadeden mi konuşalım?";
   }
-
-  const signal = decide(weekly, monthly, macro);
-  const conf = clamp(55 + macro * 10, 55, 85);
-  const tone = conf >= 75 ? "STRONG" : conf >= 60 ? "NORMAL" : "SOFT";
-
-  const used = new Set();
-  let r = "🧠 Genel tablo:\n";
-  r += "• " + pick(WORDS[inst] || WORDS.GENERIC, used) + "\n";
-  r += "• " + pick(WORDS[inst] || WORDS.GENERIC, used) + "\n";
-
-  if (mem.horizon === "SHORT") r += "• " + pick(SHORT_WORDS, used) + "\n\n";
-  if (mem.horizon === "LONG") r += "• " + pick(LONG_WORDS, used) + "\n\n";
-
-  r += "📌 Değerlendirme:\n";
-  r += "• " + pick(SIGNAL_TONE[tone][signal], used) + "\n\n";
-  r += `Sonuç: ${signal} (Güven: %${conf})`;
-
-  return r;
-}
-  // =============================
-  // NORMAL MOD
-  // =============================
-  if (msg.includes("kısa")) mem.horizon = "SHORT";
-  if (msg.includes("uzun")) mem.horizon = "LONG";
-
-  if (!mem.horizon && !mem.askedHorizon) {
-    mem.askedHorizon = true;
-    return "Kısa vadeli mi bakalım, uzun vadeden mi konuşalım?";
-  }
-
-  const inst = detectInstrument(msg);
-  const macro = macroScore(msg);
-  const weekly = body.weeklyPct || 0;
-  const monthly = body.monthlyPct || 0;
 
   const signal = decide(weekly, monthly, macro);
   const conf = clamp(55 + macro * 10, 55, 85);
